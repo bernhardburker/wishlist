@@ -4,7 +4,6 @@ After=network.target
 
 [Service]
 Type=simple
-User=berni
 WorkingDirectory=/mnt/data/work/wunschliste
 ExecStart=/usr/bin/python3 /mnt/data/work/wunschliste/server.py
 Restart=always
@@ -14,4 +13,4 @@ Environment=ADMIN_PIN=1234
 Environment=PYTHONUNBUFFERED=1
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

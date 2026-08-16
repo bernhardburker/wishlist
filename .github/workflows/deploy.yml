@@ -35,7 +35,7 @@ jobs:
       - name: 📦 Deployment & Service Upgrade
         run: |
           chmod +x deploy/upgrade.sh
-          ./deploy/upgrade.sh /home/berni/work/wunschliste
+          ./deploy/upgrade.sh /mnt/data/work/wunschliste
 
       - name: 🩺 Smoke Test & Health Check
         run: |
