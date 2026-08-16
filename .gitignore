@@ -14,3 +14,8 @@ Thumbs.db
 # Python Cache
 __pycache__/
 *.py[cod]
+
+# Playwright & Browser Binaries
+.browsers/
+.playwright_pkg/
+
