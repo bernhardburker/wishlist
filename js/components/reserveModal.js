@@ -4,13 +4,18 @@
 
 import { state } from "../state.js";
 import { storage } from "../storage.js";
-import { escapeHtml, formatCurrency, triggerConfetti } from "../utils/helpers.js";
+import { escapeHtml, formatCurrency, triggerConfetti, DEFAULT_IMAGE_PLACEHOLDER } from "../utils/helpers.js";
 import { toast } from "./toast.js";
 
 export function renderReserveModal(container, wish) {
   if (!wish) return;
 
   const savedName = storage.getSavedUserName();
+
+  let modalImage = (wish.image || "").trim() || DEFAULT_IMAGE_PLACEHOLDER;
+  if (modalImage && modalImage.includes("image.smythstoys.com") && !modalImage.match(/\.(jpg|jpeg|png|webp)($|\?)/i)) {
+    modalImage += ".jpg";
+  }
 
   const modalOverlay = document.createElement("div");
   modalOverlay.className = "modal-overlay";
@@ -23,9 +28,13 @@ export function renderReserveModal(container, wish) {
 
       <div class="modal-body">
         <div class="reserve-product-summary">
-          ${wish.image ? `
-            <img src="${escapeHtml(wish.image)}" alt="${escapeHtml(wish.title)}" class="reserve-thumb" />
-          ` : ""}
+          <img
+            src="${escapeHtml(modalImage)}"
+            alt="${escapeHtml(wish.title)}"
+            class="reserve-thumb"
+            loading="lazy"
+            referrerpolicy="no-referrer"
+          />
           <div class="reserve-product-info">
             <h4 class="reserve-product-title">${escapeHtml(wish.title)}</h4>
             <span class="reserve-product-price">${formatCurrency(wish.price)}</span>

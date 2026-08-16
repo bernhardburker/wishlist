@@ -78,12 +78,12 @@ def test_html_integrity():
         ("Deutsche Sprachdeklaration (lang='de')", 'lang="de"' in html),
         ("Viewport Meta-Tag vorhanden", 'name="viewport"' in html),
         ("Favicon eingebunden", 'rel="icon"' in html),
-        ("CSS-Stylesheets eingebunden", 'href="./css/index.css"' in html),
+        ("CSS-Stylesheets eingebunden", 'href="./css/index.css' in html),
         ("Root-Container für Header", 'id="header-root"' in html),
         ("Root-Container für Filter", 'id="filter-root"' in html),
         ("Root-Container für Geschenke-Grid", 'id="grid-root"' in html),
         ("Root-Container für Modals", 'id="modal-root"' in html),
-        ("JavaScript Modul-Startpunkt eingebunden", 'src="./js/app.js"' in html)
+        ("JavaScript Modul-Startpunkt eingebunden", 'src="./js/app.js' in html)
     ]
 
     all_ok = True

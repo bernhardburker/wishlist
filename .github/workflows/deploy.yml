@@ -34,17 +34,9 @@ jobs:
 
       - name: 📦 Deployment & Service Upgrade
         run: |
-          {
-            echo "=== RUNNER INFO ==="
-            id
-            pwd
-            uname -a
-            echo "=== TARGET DIR PERMS ==="
-            ls -ld /mnt/data/work/wunschliste || true
-            ls -la /mnt/data/work/wunschliste || true
-            chmod +x deploy/upgrade.sh
-            bash -x ./deploy/upgrade.sh /mnt/data/work/wunschliste
-          } 2>&1 | tee deploy-run.log
+          set -euo pipefail
+          chmod +x deploy/upgrade.sh
+          ./deploy/upgrade.sh 2>&1 | tee deploy-run.log
 
       - name: 📤 Deployment Logs bereitstellen
         if: always()
@@ -53,6 +45,7 @@ jobs:
           name: deployment-logs
           path: |
             deploy-run.log
+            /home/berni/wunschliste/server.log
             /mnt/data/work/wunschliste/server.log
           if-no-files-found: ignore
 

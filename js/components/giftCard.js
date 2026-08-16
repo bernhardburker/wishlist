@@ -3,7 +3,7 @@
  */
 
 import { state } from "../state.js";
-import { formatCurrency, escapeHtml, timeAgo } from "../utils/helpers.js";
+import { formatCurrency, escapeHtml, timeAgo, DEFAULT_IMAGE_PLACEHOLDER } from "../utils/helpers.js";
 import { detectShop } from "../utils/shopHelper.js";
 
 export function createGiftCardElement(wish) {
@@ -16,9 +16,7 @@ export function createGiftCardElement(wish) {
   card.className = `gift-card status-${wish.status} ${wish.priority === 'high' ? 'is-priority-high' : ''}`;
   card.id = `gift-card-${wish.id}`;
 
-  const defaultImagePlaceholder = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300" fill="%23f8fafc"><rect width="400" height="300" fill="%23f1f5f9"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" font-size="48">🎁</text><text x="50%" y="65%" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-family="sans-serif" font-size="14">Wunschfoto</text></svg>`;
-
-  let imageUrl = wish.image || defaultImagePlaceholder;
+  let imageUrl = (wish.image || "").trim() || DEFAULT_IMAGE_PLACEHOLDER;
   if (imageUrl && imageUrl.includes("image.smythstoys.com") && !imageUrl.match(/\.(jpg|jpeg|png|webp)($|\?)/i)) {
     imageUrl += ".jpg";
   }
@@ -30,7 +28,7 @@ export function createGiftCardElement(wish) {
         alt="${escapeHtml(wish.title)}"
         class="card-img"
         loading="lazy"
-        onerror="this.onerror=null; this.src='${defaultImagePlaceholder}';"
+        referrerpolicy="no-referrer"
       />
 
       <div class="card-badges-overlay">
@@ -159,6 +157,15 @@ export function createGiftCardElement(wish) {
   `;
 
   // Attach Event Listeners
+  const cardImg = card.querySelector(".card-img");
+  if (cardImg) {
+    cardImg.addEventListener("error", () => {
+      if (cardImg.src !== DEFAULT_IMAGE_PLACEHOLDER) {
+        cardImg.src = DEFAULT_IMAGE_PLACEHOLDER;
+      }
+    });
+  }
+
   const btnReserve = card.querySelector(".btn-reserve");
   if (btnReserve) {
     btnReserve.addEventListener("click", () => {

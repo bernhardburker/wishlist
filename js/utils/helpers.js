@@ -13,6 +13,17 @@ export function formatCurrency(amount) {
   }).format(num);
 }
 
+export const DEFAULT_IMAGE_PLACEHOLDER =
+  "data:image/svg+xml;charset=utf-8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+      <rect width="400" height="300" fill="#f8fafc"/>
+      <circle cx="200" cy="125" r="48" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="2"/>
+      <text x="200" y="140" dominant-baseline="middle" text-anchor="middle" font-size="42">🎁</text>
+      <text x="200" y="210" dominant-baseline="middle" text-anchor="middle" fill="#64748b" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="600">Wunschfoto</text>
+    </svg>`
+  );
+
 export function escapeHtml(str) {
   if (!str) return "";
   return String(str)
