@@ -22,6 +22,6 @@ jobs:
         run: |
           python3 scripts/test_app.py
 
-      - name: 🌐 Playwright E2E Browser-Tests ausführen
+      - name: 🌐 Playwright E2E Browser-Tests ausführen (Alle Kategorien)
         run: |
-          python3 scripts/test_e2e_playwright.py
+          python3 scripts/test_e2e_playwright.py --all

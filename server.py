@@ -6,6 +6,9 @@ Wunschliste REST-API & Webserver für den Burkerserver
 - Öffentliche Reservierungs-API für Gäste (ohne Authentifizierung)
 - Admin-API zum Anlegen/Bearbeiten/Löschen von Events & Wünschen (gesichert über Admin-PIN)
 - Volle CORS-Unterstützung für Subdomains & Reverse Proxies
+- IP-basiertes Rate-Limiting & PIN-Brute-Force-Schutz
+- HTTP-Sicherheits-Header & Content Security Policy (CSP)
+- Thread-sichere Schreibzugriffe via Concurrency Lock
 """
 
 import http.server
@@ -15,11 +18,71 @@ import os
 import sys
 import shutil
 import tempfile
+import threading
+import time
 from datetime import datetime
 
 PORT = int(os.environ.get("PORT", 8088))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_ENV_ADMIN_PIN = os.environ.get("ADMIN_PIN", "1234")
+
+# Globaler Lock für atomare Dateioperationen
+DATA_LOCK = threading.Lock()
+RATE_LIMIT_LOCK = threading.Lock()
+
+
+class RateLimiter:
+    """In-Memory IP-basiertes Rate-Limiting zum Schutz vor PIN-Brute-Force"""
+    def __init__(self, max_attempts=5, window_seconds=60, lockout_seconds=300):
+        self.max_attempts = max_attempts
+        self.window_seconds = window_seconds
+        self.lockout_seconds = lockout_seconds
+        self.failed_attempts = {}  # ip -> [timestamps]
+        self.lockouts = {}         # ip -> lockout_until_timestamp
+
+    def is_rate_limited(self, ip):
+        with RATE_LIMIT_LOCK:
+            now = time.time()
+            if ip in self.lockouts:
+                if now < self.lockouts[ip]:
+                    retry_after = int(self.lockouts[ip] - now) + 1
+                    return True, retry_after
+                else:
+                    del self.lockouts[ip]
+                    self.failed_attempts.pop(ip, None)
+
+            attempts = [t for t in self.failed_attempts.get(ip, []) if now - t < self.window_seconds]
+            self.failed_attempts[ip] = attempts
+            if len(attempts) >= self.max_attempts:
+                self.lockouts[ip] = now + self.lockout_seconds
+                return True, self.lockout_seconds
+
+            return False, 0
+
+    def record_failure(self, ip):
+        with RATE_LIMIT_LOCK:
+            now = time.time()
+            attempts = [t for t in self.failed_attempts.get(ip, []) if now - t < self.window_seconds]
+            attempts.append(now)
+            self.failed_attempts[ip] = attempts
+            if len(attempts) >= self.max_attempts:
+                self.lockouts[ip] = now + self.lockout_seconds
+                return True, self.lockout_seconds
+            return False, 0
+
+    def record_success(self, ip):
+        with RATE_LIMIT_LOCK:
+            self.failed_attempts.pop(ip, None)
+            self.lockouts.pop(ip, None)
+
+    def reset(self):
+        with RATE_LIMIT_LOCK:
+            self.failed_attempts.clear()
+            self.lockouts.clear()
+
+
+RATE_LIMITER = RateLimiter(max_attempts=5, window_seconds=60, lockout_seconds=300)
+
 
 def get_data_dir():
     """Gibt das aktuelle Datenverzeichnis zurück (konfigurierbar via WUNSCHLISTE_DATA_DIR)"""
@@ -39,25 +102,27 @@ def ensure_data_dirs():
 
 def atomic_write_json(file_path, data):
     """Schreibt JSON atomar über eine temporäre Datei (verhindert Datenverlust/Korruption)"""
-    ensure_data_dirs()
-    dir_name = os.path.dirname(file_path)
-    with tempfile.NamedTemporaryFile("w", dir=dir_name, delete=False, encoding="utf-8") as tf:
-        json.dump(data, tf, indent=2, ensure_ascii=False)
-        temp_name = tf.name
-    shutil.move(temp_name, file_path)
+    with DATA_LOCK:
+        ensure_data_dirs()
+        dir_name = os.path.dirname(file_path)
+        with tempfile.NamedTemporaryFile("w", dir=dir_name, delete=False, encoding="utf-8") as tf:
+            json.dump(data, tf, indent=2, ensure_ascii=False)
+            temp_name = tf.name
+        shutil.move(temp_name, file_path)
 
 def load_settings_from_disk():
     """Lädt Einstellungen & Admin-PIN aus settings.json"""
-    ensure_data_dirs()
-    settings_file = get_settings_file()
-    if os.path.exists(settings_file):
-        try:
-            with open(settings_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    return data
-        except Exception as e:
-            print(f"Fehler beim Laden von settings.json: {e}", file=sys.stderr)
+    with DATA_LOCK:
+        ensure_data_dirs()
+        settings_file = get_settings_file()
+        if os.path.exists(settings_file):
+            try:
+                with open(settings_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        return data
+            except Exception as e:
+                print(f"Fehler beim Laden von settings.json: {e}", file=sys.stderr)
     return {
         "adminPin": DEFAULT_ENV_ADMIN_PIN,
         "categories": [
@@ -107,14 +172,15 @@ def ensure_data_file():
 
 def load_events_from_disk():
     """Lädt die aktuellen Events aus der JSON-Datei"""
-    ensure_data_file()
-    events_file = get_events_file()
-    try:
-        with open(events_file, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"Fehler beim Laden von events.json: {e}", file=sys.stderr)
-        return []
+    with DATA_LOCK:
+        ensure_data_file()
+        events_file = get_events_file()
+        try:
+            with open(events_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Fehler beim Laden von events.json: {e}", file=sys.stderr)
+            return []
 
 def save_events_to_disk(events):
     """Speichert Events atomar in die JSON-Datei"""
@@ -152,11 +218,25 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
 
+    def get_client_ip(self):
+        """Ermittelt die IP-Adresse des Clients (inkl. Reverse-Proxy Support)"""
+        forwarded = self.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        if self.client_address:
+            return str(self.client_address[0])
+        return "127.0.0.1"
+
     def end_headers(self):
         # CORS Header für Subdomain-Zugriff und Proxies
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Pin")
+        # Sicherheits-Header
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: http:; connect-src 'self' http: https:; frame-ancestors 'self';")
         # Cache deaktivieren für Live-Daten & aktuelle Web-Assets
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("Pragma", "no-cache")
@@ -168,14 +248,25 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(204)
         self.end_headers()
 
-    def send_json(self, status_code, data):
+    def send_json(self, status_code, data, extra_headers=None):
         """Hilfsmethode zum Senden von JSON-Antworten"""
         payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(payload)))
+        if extra_headers:
+            for k, v in extra_headers.items():
+                self.send_header(k, str(v))
         self.end_headers()
         self.wfile.write(payload)
+
+    def send_rate_limited(self, retry_after):
+        """Sendet standardisierte 429 Too Many Requests Antwort"""
+        self.send_json(
+            429,
+            {"error": "Zu viele Fehlversuche. Bitte warte einen Moment, bevor du es erneut versuchst.", "retryAfter": retry_after},
+            extra_headers={"Retry-After": retry_after}
+        )
 
     def read_json_body(self):
         """Liest den Body der Anfrage als JSON"""
@@ -226,24 +317,42 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         """API Schreibzugriffe (Reservieren, Wünsche/Events/Settings speichern)"""
         path = self.path.split("?")[0]
+        client_ip = self.get_client_ip()
 
         # --- Route: Admin PIN Verifizierung ---
         if path == "/api/admin/verify":
+            is_limited, retry_after = RATE_LIMITER.is_rate_limited(client_ip)
+            if is_limited:
+                self.send_rate_limited(retry_after)
+                return
+
             body = self.read_json_body() or {}
             pin = (body.get("pin") or "").strip()
             current_pin = get_current_admin_pin()
             is_valid = bool(pin) and (pin == current_pin)
+
+            if is_valid:
+                RATE_LIMITER.record_success(client_ip)
+            else:
+                RATE_LIMITER.record_failure(client_ip)
+
             self.send_json(200, {"valid": is_valid})
             return
 
         # --- Route: Admin PIN sicher ändern ---
         if path == "/api/admin/change-pin":
+            is_limited, retry_after = RATE_LIMITER.is_rate_limited(client_ip)
+            if is_limited:
+                self.send_rate_limited(retry_after)
+                return
+
             body = self.read_json_body() or {}
             old_pin = (body.get("oldPin") or self.headers.get("X-Admin-Pin") or "").strip()
             new_pin = (body.get("newPin") or "").strip()
 
             current_pin = get_current_admin_pin()
             if not old_pin or old_pin != current_pin:
+                RATE_LIMITER.record_failure(client_ip)
                 self.send_json(401, {"error": "Bisherige Admin-PIN ist nicht korrekt."})
                 return
 
@@ -251,6 +360,7 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(400, {"error": "Die neue PIN muss zwischen 4 und 64 Zeichen lang sein."})
                 return
 
+            RATE_LIMITER.record_success(client_ip)
             settings = load_settings_from_disk()
             settings["adminPin"] = new_pin
             save_settings_to_disk(settings)
@@ -266,7 +376,7 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
 
             event_id = body["eventId"]
             wish_id = body["wishId"]
-            action = body.get("action", "reserve")  # 'reserve' oder 'cancel'
+            action = body.get("action", "reserve")  # 'reserve', 'bought' oder 'cancel'
             name = (body.get("name") or "").strip()
             note = (body.get("note") or "").strip()
             pin = (body.get("pin") or "").strip()
@@ -290,9 +400,16 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
                 # Falls bereits reserviert und ein PIN gesetzt ist: PIN prüfen (außer Admin)
                 admin_authenticated = self.check_admin_auth() or (pin and pin == get_current_admin_pin())
                 if target_wish.get("status") in ("reserved", "bought") and target_wish.get("reservePin") and not admin_authenticated:
+                    is_limited, retry_after = RATE_LIMITER.is_rate_limited(client_ip)
+                    if is_limited:
+                        self.send_rate_limited(retry_after)
+                        return
+
                     if str(pin).strip() != str(target_wish.get("reservePin")).strip():
+                        RATE_LIMITER.record_failure(client_ip)
                         self.send_json(403, {"error": "Ungültige Storno-PIN."})
                         return
+                    RATE_LIMITER.record_success(client_ip)
 
                 target_wish["status"] = "bought" if action == "bought" else "reserved"
                 target_wish["reservedBy"] = name
@@ -300,13 +417,22 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
                 target_wish["reserveNote"] = note
                 if pin or not target_wish.get("reservePin"):
                     target_wish["reservePin"] = pin
+
             elif action == "cancel":
                 # Stornieren: Prüfe ob PIN übereinstimmt oder Admin auth
                 admin_authenticated = self.check_admin_auth() or (pin and pin == get_current_admin_pin())
                 if target_wish.get("reservePin") and not admin_authenticated:
+                    is_limited, retry_after = RATE_LIMITER.is_rate_limited(client_ip)
+                    if is_limited:
+                        self.send_rate_limited(retry_after)
+                        return
+
                     if str(pin).strip() != str(target_wish.get("reservePin")).strip():
+                        RATE_LIMITER.record_failure(client_ip)
                         self.send_json(403, {"error": "Ungültige Storno-PIN."})
                         return
+                    RATE_LIMITER.record_success(client_ip)
+
                 target_wish["status"] = "available"
                 target_wish["reservedBy"] = ""
                 target_wish["reservedAt"] = None
@@ -317,7 +443,7 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             target_wish["updatedAt"] = datetime.now().isoformat()
-            atomic_write_json(get_events_file(), events)
+            save_events_to_disk(events)
 
             if not self.check_admin_auth():
                 resp_wish = sanitize_wish_for_guests(target_wish)

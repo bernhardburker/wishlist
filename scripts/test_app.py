@@ -270,12 +270,62 @@ def test_server_and_routes():
                     if res.status == 200:
                         content = res.read()
                         log_pass(f"HTTP 200 OK: {url} ({len(content)} Bytes)")
+                        # Prüfe Sicherheitsheader bei /api/health
+                        if url == "/api/health":
+                            hdrs = res.headers
+                            if hdrs.get("X-Content-Type-Options") == "nosniff" and \
+                               hdrs.get("X-Frame-Options") == "SAMEORIGIN" and \
+                               "strict-origin" in hdrs.get("Referrer-Policy", "") and \
+                               "Content-Security-Policy" in hdrs:
+                                log_pass("Sicherheit: HTTP-Sicherheitsheader & CSP einwandfrei konfiguriert")
+                            else:
+                                log_fail("Sicherheit: HTTP-Sicherheitsheader oder CSP fehlen / unvollständig")
+                                all_ok = False
                     else:
                         log_fail(f"HTTP {res.status}: {url}")
                         all_ok = False
             except Exception as e:
                 log_fail(f"Fehler bei {url}: {e}")
                 all_ok = False
+
+        # Test Rate-Limiting / Brute-Force-Schutz
+        try:
+            from server import RATE_LIMITER
+            RATE_LIMITER.reset()
+
+            # 5 falsche Versuche senden
+            for i in range(5):
+                wrong_verify = json.dumps({"pin": "wrong9999"}).encode("utf-8")
+                req_w = urllib.request.Request(
+                    f"http://localhost:{PORT}/api/admin/verify",
+                    data=wrong_verify,
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req_w) as res_w:
+                    pass  # Status 200 mit valid=False
+
+            # 6. Versuch muss HTTP 429 Too Many Requests liefern
+            req_blocked = urllib.request.Request(
+                f"http://localhost:{PORT}/api/admin/verify",
+                data=wrong_verify,
+                headers={"Content-Type": "application/json"}
+            )
+            try:
+                with urllib.request.urlopen(req_blocked) as res_b:
+                    log_fail(f"Rate-Limiting fehlgeschlagen: 6. Fehlversuch wurde nicht blockiert (Status {res_b.status})")
+                    all_ok = False
+            except urllib.error.HTTPError as he:
+                if he.code == 429:
+                    log_pass("Sicherheit: Rate-Limiter sperrt nach 5 Fehlversuchen zuverlässig mit HTTP 429")
+                else:
+                    log_fail(f"Unerwarteter Statuscode bei Rate-Limit: {he.code}")
+                    all_ok = False
+
+            # Limiter zurücksetzen für weitere Tests
+            RATE_LIMITER.reset()
+        except Exception as e:
+            log_fail(f"Fehler bei Rate-Limiting Test: {e}")
+            all_ok = False
 
         # Test POST /api/reserve (Reservieren, falscher PIN beim Stornieren, richtiger PIN beim Stornieren)
         try:
