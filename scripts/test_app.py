@@ -182,9 +182,20 @@ def test_server_and_routes():
 
         # Test POST /api/reserve with 8-digit PIN
         try:
+            test_event_id = "karin-wunschliste"
+            test_wish_id = "smyths-258441"
+            if os.path.exists(events_file):
+                with open(events_file, "r", encoding="utf-8") as f:
+                    ev_data = json.load(f)
+                    if ev_data and isinstance(ev_data, list) and len(ev_data) > 0:
+                        test_event_id = ev_data[0].get("id") or test_event_id
+                        wishes = ev_data[0].get("wishes", [])
+                        if wishes and len(wishes) > 0:
+                            test_wish_id = wishes[0].get("id") or test_wish_id
+
             reserve_data = json.dumps({
-                "eventId": "geburtstag-2026",
-                "wishId": "wish-1",
+                "eventId": test_event_id,
+                "wishId": test_wish_id,
                 "action": "reserve",
                 "name": "Test Gast",
                 "note": "Freue mich",

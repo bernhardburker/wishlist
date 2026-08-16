@@ -119,11 +119,13 @@ export function renderHeader(container) {
           <span class="stat-value stat-reserved">${stats.reserved}</span>
           <span class="stat-label">Bereits reserviert</span>
         </div>
-        <div class="stat-divider"></div>
-        <div class="stat-card">
-          <span class="stat-value">${stats.highPriority}</span>
-          <span class="stat-label">Besonders wichtig</span>
-        </div>
+        ${stats.highPriority && stats.highPriority > 0 ? `
+          <div class="stat-divider"></div>
+          <div class="stat-card">
+            <span class="stat-value">${stats.highPriority}</span>
+            <span class="stat-label">Besonders wichtig</span>
+          </div>
+        ` : ""}
       </div>
 
       ${stats.total > 0 ? `

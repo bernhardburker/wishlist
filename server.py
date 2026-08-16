@@ -19,13 +19,14 @@ from datetime import datetime
 
 PORT = int(os.environ.get("PORT", 8088))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
-DATA_FILE = os.path.join(DIRECTORY, "data", "events.json")
-SETTINGS_FILE = os.path.join(DIRECTORY, "data", "settings.json")
+DATA_DIR = os.environ.get("WUNSCHLISTE_DATA_DIR", os.path.join(DIRECTORY, "data"))
+DATA_FILE = os.path.join(DATA_DIR, "events.json")
+SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 DEFAULT_ENV_ADMIN_PIN = os.environ.get("ADMIN_PIN", "1234")
 
 def ensure_data_dirs():
     """Stellt sicher, dass das Datenverzeichnis existiert"""
-    os.makedirs(os.path.join(DIRECTORY, "data"), exist_ok=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
 
 def atomic_write_json(file_path, data):
     """Schreibt JSON atomar über eine temporäre Datei (verhindert Datenverlust/Korruption)"""
@@ -68,16 +69,24 @@ def save_settings_to_disk(settings):
     atomic_write_json(SETTINGS_FILE, settings)
 
 def ensure_data_file():
-    """Stellt sicher, dass die Datei data/events.json existiert"""
+    """Stellt sicher, dass die Datei events.json existiert"""
     ensure_data_dirs()
     if not os.path.exists(DATA_FILE):
+        source_template = os.path.join(DIRECTORY, "data", "events.json")
+        if os.path.exists(source_template) and os.path.abspath(source_template) != os.path.abspath(DATA_FILE):
+            try:
+                shutil.copyfile(source_template, DATA_FILE)
+                return
+            except Exception as e:
+                print(f"Fehler beim Kopieren von events.json Template: {e}", file=sys.stderr)
+
         default_data = [
             {
-                "id": "haupt-wunschliste",
-                "slug": "haupt-wunschliste",
-                "title": "Unsere Wunschliste 🎁",
+                "id": "karin-wunschliste",
+                "slug": "karin-wunschliste",
+                "title": "Karins Wunschliste 🎁",
                 "subtitle": "Herzlich willkommen! Hier findet ihr alle Geschenkideen.",
-                "date": "",
+                "date": "2026-09-15",
                 "icon": "🎁",
                 "isArchived": False,
                 "wishes": []
@@ -153,14 +162,14 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(200, {"status": "ok", "timestamp": datetime.now().isoformat()})
             return
 
-        # 2. Events & Wünsche abrufen
-        if path == "/api/events":
+        # 2. Events & Wünsche abrufen (sowohl /api/events als auch statischer Pfad /data/events.json)
+        if path in ("/api/events", "/data/events.json"):
             events = load_events_from_disk()
             self.send_json(200, events)
             return
 
         # 3. Einstellungen abrufen (ohne PIN im Response)
-        if path == "/api/settings":
+        if path in ("/api/settings", "/data/settings.json"):
             settings = load_settings_from_disk()
             public_settings = {k: v for k, v in settings.items() if k != "adminPin"}
             self.send_json(200, public_settings)

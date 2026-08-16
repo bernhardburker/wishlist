@@ -19,14 +19,25 @@ else
     TARGET_DIR="$SRC_DIR"
 fi
 
+# Persistentes Datenverzeichnis (isoliert von Git-Checkouts)
+if [ -n "${WUNSCHLISTE_DATA_DIR:-}" ]; then
+    DATA_DIR="$WUNSCHLISTE_DATA_DIR"
+elif [ -d "$HOME/.wunschliste_data" ] || mkdir -p "$HOME/.wunschliste_data" 2>/dev/null; then
+    DATA_DIR="$HOME/.wunschliste_data"
+else
+    DATA_DIR="$TARGET_DIR/data"
+fi
+
 echo "=================================================="
 echo "🎁 Starte Wunschliste Upgrade auf Burkerserver..."
 echo "📂 Quellverzeichnis: $SRC_DIR"
 echo "📂 Zielverzeichnis:  $TARGET_DIR"
+echo "💾 Datenverzeichnis: $DATA_DIR"
 echo "🌐 Port:             $PORT"
 echo "=================================================="
 
-# 1. Zielverzeichnisse sicherstellen
+# 1. Ziel- und Datenverzeichnisse sicherstellen
+mkdir -p "$DATA_DIR"
 mkdir -p "$TARGET_DIR/data"
 mkdir -p "$TARGET_DIR/deploy"
 mkdir -p "$TARGET_DIR/css"
@@ -34,7 +45,24 @@ mkdir -p "$TARGET_DIR/js"
 mkdir -p "$TARGET_DIR/assets"
 mkdir -p "$TARGET_DIR/scripts"
 
-# 2. Dateien synchronisieren (falls Quell- und Zielverzeichnis unterschiedlich sind)
+# 2. Live-Daten-Sicherung VOR jedem Kopiervorgang
+BACKUP_DIR="/tmp/wunschliste_backup_$(date +%s)"
+mkdir -p "$BACKUP_DIR"
+if [ -f "$DATA_DIR/events.json" ]; then
+    echo "🔒 Sichere bestehende Live-Events aus $DATA_DIR/events.json..."
+    cp -p "$DATA_DIR/events.json" "$BACKUP_DIR/events.json"
+elif [ -f "$TARGET_DIR/data/events.json" ]; then
+    echo "🔒 Übernehme bestehende Live-Events aus $TARGET_DIR/data/events.json nach $DATA_DIR..."
+    cp -p "$TARGET_DIR/data/events.json" "$DATA_DIR/events.json"
+fi
+
+if [ -f "$DATA_DIR/settings.json" ]; then
+    cp -p "$DATA_DIR/settings.json" "$BACKUP_DIR/settings.json"
+elif [ -f "$TARGET_DIR/data/settings.json" ]; then
+    cp -p "$TARGET_DIR/data/settings.json" "$DATA_DIR/settings.json"
+fi
+
+# 3. Anwendungsdateien synchronisieren (falls Quell- und Zielverzeichnis unterschiedlich sind)
 SRC_REAL="$(realpath "$SRC_DIR" 2>/dev/null || echo "$SRC_DIR")"
 TARGET_REAL="$(realpath "$TARGET_DIR" 2>/dev/null || echo "$TARGET_DIR")"
 
@@ -50,15 +78,24 @@ if [ "$SRC_REAL" != "$TARGET_REAL" ]; then
     [ -d "$SRC_DIR/deploy" ] && cp -rf "$SRC_DIR/deploy/." "$TARGET_DIR/deploy/"
 fi
 
-# 3. Sicherstellen, dass Live-Daten nicht überschrieben werden
-if [ ! -f "$TARGET_DIR/data/events.json" ]; then
+# 4. Sicherstellen, dass Live-Daten nicht überschrieben werden
+if [ ! -f "$DATA_DIR/events.json" ]; then
     if [ -f "$SRC_DIR/data/events.json" ]; then
-        echo "📄 Initialisiere data/events.json mit Standard-Wunschliste..."
-        cp "$SRC_DIR/data/events.json" "$TARGET_DIR/data/events.json"
+        echo "📄 Initialisiere $DATA_DIR/events.json mit Standard-Wunschliste..."
+        cp "$SRC_DIR/data/events.json" "$DATA_DIR/events.json"
     fi
 else
-    echo "🔒 Bestehende Live-Daten in data/events.json bleiben geschützt."
+    echo "🔒 Bestehende Live-Daten in $DATA_DIR/events.json bleiben 100% geschützt."
 fi
+
+# Lokale data/events.json für statischen Fallback aktuell halten
+if [ -f "$DATA_DIR/events.json" ] && [ "$DATA_DIR" != "$TARGET_DIR/data" ]; then
+    cp -f "$DATA_DIR/events.json" "$TARGET_DIR/data/events.json" 2>/dev/null || true
+fi
+if [ -f "$DATA_DIR/settings.json" ] && [ "$DATA_DIR" != "$TARGET_DIR/data" ]; then
+    cp -f "$DATA_DIR/settings.json" "$TARGET_DIR/data/settings.json" 2>/dev/null || true
+fi
+rm -rf "$BACKUP_DIR"
 
 if [ -f "$SRC_DIR/data/default-wishes.js" ]; then
     cp -f "$SRC_DIR/data/default-wishes.js" "$TARGET_DIR/data/default-wishes.js" 2>/dev/null || true
@@ -91,6 +128,7 @@ Restart=always
 RestartSec=3
 Environment=PORT=$PORT
 Environment=ADMIN_PIN=1234
+Environment=WUNSCHLISTE_DATA_DIR=$DATA_DIR
 Environment=PYTHONUNBUFFERED=1
 
 [Install]
@@ -114,6 +152,9 @@ fi
 if [ "$SERVICE_STARTED" = false ]; then
     echo "ℹ️ Systemd D-Bus nicht direkt ansprechbar. Starte Python-Server direkt als Daemon..."
     cd "$TARGET_DIR"
+    export WUNSCHLISTE_DATA_DIR="$DATA_DIR"
+    export PORT="$PORT"
+    export ADMIN_PIN="1234"
     if command -v setsid >/dev/null 2>&1; then
         setsid "$PYTHON_BIN" -u "$TARGET_DIR/server.py" >> "$TARGET_DIR/server.log" 2>&1 &
     else

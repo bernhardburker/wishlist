@@ -192,7 +192,10 @@ class StateStore {
     const available = wishes.filter(w => w.status === "available").length;
     const reserved = wishes.filter(w => w.status === "reserved").length;
     const bought = wishes.filter(w => w.status === "bought").length;
-    return { total, available, reserved, bought };
+    const highPriority = wishes.filter(w => w.priority === "high").length;
+    const taken = reserved + bought;
+    const percentReserved = total > 0 ? Math.round((taken / total) * 100) : 0;
+    return { total, available, reserved, bought, highPriority, percentReserved };
   }
 
   // --- Admin-Modus ---
