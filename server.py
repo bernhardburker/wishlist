@@ -105,6 +105,33 @@ def load_events_from_disk():
         return []
 
 
+def sanitize_wish_for_guests(wish):
+    """Entfernt sensible Daten wie Namen und PIN für nicht-Admin Gäste"""
+    if not isinstance(wish, dict):
+        return wish
+    w_copy = dict(wish)
+    w_copy["hasReservePin"] = bool(w_copy.get("reservePin"))
+    w_copy["reservedBy"] = ""
+    w_copy["reservePin"] = ""
+    w_copy["reserveNote"] = ""
+    return w_copy
+
+def sanitize_events_for_guests(events):
+    """Bereinigt alle Events für Gäste: Verbirgt Käufer-/Reservierungsnamen und PINs"""
+    if not isinstance(events, list):
+        return events
+    sanitized = []
+    for ev in events:
+        if not isinstance(ev, dict):
+            sanitized.append(ev)
+            continue
+        ev_copy = dict(ev)
+        if "wishes" in ev_copy and isinstance(ev_copy["wishes"], list):
+            ev_copy["wishes"] = [sanitize_wish_for_guests(w) for w in ev_copy["wishes"]]
+        sanitized.append(ev_copy)
+    return sanitized
+
+
 class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
@@ -165,6 +192,8 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
         # 2. Events & Wünsche abrufen (sowohl /api/events als auch statischer Pfad /data/events.json)
         if path in ("/api/events", "/data/events.json"):
             events = load_events_from_disk()
+            if not self.check_admin_auth():
+                events = sanitize_events_for_guests(events)
             self.send_json(200, events)
             return
 
@@ -237,25 +266,35 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(404, {"error": "Wunsch nicht gefunden"})
                 return
 
-            if action == "reserve":
+            if action in ("reserve", "bought"):
                 if not name:
                     self.send_json(400, {"error": "Bitte gib deinen Namen für die Reservierung an."})
                     return
-                target_wish["status"] = "reserved"
+
+                # Falls bereits reserviert und ein PIN gesetzt ist: PIN prüfen (außer Admin)
+                admin_authenticated = self.check_admin_auth() or (pin and pin == get_current_admin_pin())
+                if target_wish.get("status") in ("reserved", "bought") and target_wish.get("reservePin") and not admin_authenticated:
+                    if str(pin).strip() != str(target_wish.get("reservePin")).strip():
+                        self.send_json(403, {"error": "Ungültige Storno-PIN."})
+                        return
+
+                target_wish["status"] = "bought" if action == "bought" else "reserved"
                 target_wish["reservedBy"] = name
                 target_wish["reservedAt"] = datetime.now().isoformat()
-                target_wish["note"] = note
-                target_wish["reservePin"] = pin
+                target_wish["reserveNote"] = note
+                if pin or not target_wish.get("reservePin"):
+                    target_wish["reservePin"] = pin
             elif action == "cancel":
                 # Stornieren: Prüfe ob PIN übereinstimmt oder Admin auth
-                if target_wish.get("reservePin") and not self.check_admin_auth():
-                    if pin != target_wish.get("reservePin"):
+                admin_authenticated = self.check_admin_auth() or (pin and pin == get_current_admin_pin())
+                if target_wish.get("reservePin") and not admin_authenticated:
+                    if str(pin).strip() != str(target_wish.get("reservePin")).strip():
                         self.send_json(403, {"error": "Ungültige Storno-PIN."})
                         return
                 target_wish["status"] = "available"
                 target_wish["reservedBy"] = ""
                 target_wish["reservedAt"] = None
-                target_wish["note"] = ""
+                target_wish["reserveNote"] = ""
                 target_wish["reservePin"] = ""
             else:
                 self.send_json(400, {"error": "Ungültige Aktion."})
@@ -263,7 +302,15 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
 
             target_wish["updatedAt"] = datetime.now().isoformat()
             atomic_write_json(DATA_FILE, events)
-            self.send_json(200, {"success": True, "wish": target_wish, "events": events})
+
+            if not self.check_admin_auth():
+                resp_wish = sanitize_wish_for_guests(target_wish)
+                resp_events = sanitize_events_for_guests(events)
+            else:
+                resp_wish = target_wish
+                resp_events = events
+
+            self.send_json(200, {"success": True, "wish": resp_wish, "events": resp_events})
             return
 
         # --- Admin Route: Einstellungen speichern ---

@@ -9,7 +9,7 @@ export function renderReserveModal(container, wish, preSelectBought = false) {
 
   const shops = getWishShops(wish);
   const savedName = preSelectBought
-    ? (wish.reservedBy || storage.getSavedUserName())
+    ? (state.isAdmin ? (wish.reservedBy || storage.getSavedUserName()) : storage.getSavedUserName())
     : storage.getSavedUserName();
 
   let modalImage = (wish.image || "").trim() || DEFAULT_IMAGE_PLACEHOLDER;
@@ -63,7 +63,7 @@ export function renderReserveModal(container, wish, preSelectBought = false) {
               value="${escapeHtml(savedName)}"
               autofocus
             />
-            <span class="form-hint">So wissen alle, wer dieses Geschenk übernimmt.</span>
+            <span class="form-hint">Der Name ist vertraulich und nur für den Listen-Inhaber (Admin) sichtbar.</span>
           </div>
 
           <div class="form-group">

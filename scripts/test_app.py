@@ -251,13 +251,15 @@ def test_server_and_routes():
                 log_fail(f"Fehler bei {url}: {e}")
                 all_ok = False
 
-        # Test POST /api/reserve with 8-digit PIN
+        # Test POST /api/reserve (Reservieren, falscher PIN beim Stornieren, richtiger PIN beim Stornieren)
         try:
             from server import load_events_from_disk
             current_events = load_events_from_disk()
             if current_events and current_events[0].get("wishes"):
                 test_event_id = current_events[0]["id"]
                 test_wish_id = current_events[0]["wishes"][0]["id"]
+
+                # 1. Reservieren mit PIN
                 reserve_data = json.dumps({
                     "eventId": test_event_id,
                     "wishId": test_wish_id,
@@ -274,13 +276,85 @@ def test_server_and_routes():
                 with urllib.request.urlopen(req) as res:
                     if res.status == 200:
                         resp_json = json.loads(res.read().decode("utf-8"))
-                        if resp_json.get("success"):
+                        if resp_json.get("success") and resp_json.get("wish", {}).get("status") == "reserved":
                             log_pass("POST /api/reserve: Reservierungs-API mit 8-stelligem PIN funktioniert einwandfrei")
                         else:
                             log_fail(f"POST /api/reserve antwortete ohne Erfolg: {resp_json}")
                             all_ok = False
                     else:
                         log_fail(f"POST /api/reserve Status: {res.status}")
+                        all_ok = False
+
+                # 1b. Datenschutz-Prüfung: GET /api/events ohne Admin-Header darf den Namen NICHT anzeigen
+                req_guest = urllib.request.Request(f"http://localhost:{PORT}/api/events")
+                with urllib.request.urlopen(req_guest) as res_guest:
+                    guest_events = json.loads(res_guest.read().decode("utf-8"))
+                    guest_wish = next((w for ev in guest_events for w in ev.get("wishes", []) if w["id"] == test_wish_id), None)
+                    if guest_wish and guest_wish.get("reservedBy") == "" and guest_wish.get("reservePin") == "":
+                        log_pass("Datenschutz: Gast-API blendet Namen (reservedBy) und PINs zuverlässig aus")
+                    else:
+                        log_fail(f"Datenschutz-Verletzung: Gast-API liefert sensible Daten: {guest_wish}")
+                        all_ok = False
+
+                # 1c. Admin-Prüfung: GET /api/events mit Admin-PIN zeigt den Namen an
+                req_admin = urllib.request.Request(
+                    f"http://localhost:{PORT}/api/events",
+                    headers={"X-Admin-Pin": "1234"}
+                )
+                with urllib.request.urlopen(req_admin) as res_admin:
+                    admin_events = json.loads(res_admin.read().decode("utf-8"))
+                    admin_wish = next((w for ev in admin_events for w in ev.get("wishes", []) if w["id"] == test_wish_id), None)
+                    if admin_wish and admin_wish.get("reservedBy") == "Test Gast":
+                        log_pass("Admin-Zugriff: Admin-API liefert den Reservierungsnamen (Test Gast) korrekt")
+                    else:
+                        log_fail(f"Admin-Fehler: Admin sieht Reservierungsnamen nicht: {admin_wish}")
+                        all_ok = False
+
+                # 2. Stornieren mit FALSCHEM PIN -> muss abgewiesen werden (HTTP 403)
+                cancel_wrong_data = json.dumps({
+                    "eventId": test_event_id,
+                    "wishId": test_wish_id,
+                    "action": "cancel",
+                    "pin": "00000000"
+                }).encode("utf-8")
+                req_wrong = urllib.request.Request(
+                    f"http://localhost:{PORT}/api/reserve",
+                    data=cancel_wrong_data,
+                    headers={"Content-Type": "application/json"}
+                )
+                try:
+                    with urllib.request.urlopen(req_wrong) as res:
+                        log_fail(f"Sicherheitsfehler: Stornierung mit falschem PIN wurde mit Status {res.status} akzeptiert!")
+                        all_ok = False
+                except urllib.error.HTTPError as he:
+                    if he.code == 403:
+                        log_pass("Sicherheit: Stornierungsversuch mit falschem PIN wird mit HTTP 403 abgewiesen")
+                    else:
+                        log_fail(f"Unerwarteter HTTP Status bei falschem Storno-PIN: {he.code}")
+                        all_ok = False
+
+                # 3. Stornieren mit RICHTIGEM PIN -> muss erfolgreich freigegeben werden
+                cancel_correct_data = json.dumps({
+                    "eventId": test_event_id,
+                    "wishId": test_wish_id,
+                    "action": "cancel",
+                    "pin": "87654321"
+                }).encode("utf-8")
+                req_correct = urllib.request.Request(
+                    f"http://localhost:{PORT}/api/reserve",
+                    data=cancel_correct_data,
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req_correct) as res:
+                    if res.status == 200:
+                        resp_json = json.loads(res.read().decode("utf-8"))
+                        if resp_json.get("success") and resp_json.get("wish", {}).get("status") == "available":
+                            log_pass("POST /api/reserve: Reservierung aufheben mit richtigem PIN funktioniert einwandfrei")
+                        else:
+                            log_fail(f"Stornierung mit richtigem PIN fehlgeschlagen: {resp_json}")
+                            all_ok = False
+                    else:
+                        log_fail(f"Storno mit richtigem PIN HTTP Status: {res.status}")
                         all_ok = False
             else:
                 log_fail("Keine Events oder Wünsche zum Testen von POST /api/reserve vorhanden")

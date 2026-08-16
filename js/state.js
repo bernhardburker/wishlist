@@ -205,16 +205,26 @@ class StateStore {
       this.isAdmin = true;
       sessionStorage.setItem("wunschliste_admin_active", "true");
       storage.setAdminPin(pin);
+      try {
+        this.events = await storage.loadEvents();
+      } catch (e) {
+        console.warn("Konnte Events nach Admin-Login nicht aktualisieren:", e);
+      }
       this.notify();
       return true;
     }
     return false;
   }
 
-  logoutAdmin() {
+  async logoutAdmin() {
     this.isAdmin = false;
     sessionStorage.removeItem("wunschliste_admin_active");
     sessionStorage.removeItem("wunschliste_admin_pin");
+    try {
+      this.events = await storage.loadEvents();
+    } catch (e) {
+      console.warn("Konnte Events nach Admin-Logout nicht aktualisieren:", e);
+    }
     this.notify();
   }
 
@@ -284,23 +294,68 @@ class StateStore {
     const target = (active.wishes || []).find(w => w.id === wishId);
     if (!target) return false;
 
+    const cleanName = (userName || "").trim();
+    const cleanNote = (note || "").trim();
+    const cleanPin = (pin || "").trim();
+    const targetPin = String(target.reservePin || "").trim();
+    const adminPin = String(this.settings.adminPin || storage.getAdminPin() || "").trim();
+
     // Falls bereits reserviert und ein PIN gesetzt ist: PIN prüfen (außer Admin)
-    if (target.status === "reserved" && target.reservePin && !this.isAdmin) {
-      const isAllowed = pin === target.reservePin || pin === this.settings.adminPin;
+    if (target.status === "reserved" && targetPin && !this.isAdmin) {
+      const isAllowed = cleanPin === targetPin || (adminPin && cleanPin === adminPin);
       if (!isAllowed) return false;
     }
 
+    const action = asBought ? "bought" : "reserve";
+
+    try {
+      const serverRes = await storage.reserveWishOnServer(
+        active.id,
+        wishId,
+        action,
+        cleanName,
+        cleanNote,
+        cleanPin || targetPin
+      );
+
+      if (serverRes.success && serverRes.events) {
+        this.events = serverRes.events;
+        storage.setSavedUserName(cleanName);
+        this.notify();
+        return true;
+      }
+
+      if (!serverRes.success && !serverRes.offline) {
+        // Server hat explizit abgelehnt (z. B. 403 falscher PIN)
+        return false;
+      }
+    } catch (e) {
+      console.warn("Server-Reservierung fehlgeschlagen, speichere lokal:", e);
+    }
+
+    // Offline / Lokaler Fallback
     const updated = {
       ...target,
       status: asBought ? "bought" : "reserved",
-      reservedBy: userName.trim(),
+      reservedBy: cleanName,
       reservedAt: new Date().toISOString(),
-      reserveNote: note.trim(),
-      reservePin: pin.trim() || target.reservePin // behalte alten PIN wenn keiner neu gesetzt
+      reserveNote: cleanNote,
+      reservePin: cleanPin || target.reservePin || ""
     };
 
-    storage.setSavedUserName(userName);
-    this.events = await storage.updateWish(active.id, updated);
+    storage.setSavedUserName(cleanName);
+    const eventIndex = this.events.findIndex(e => e.id === active.id);
+    if (eventIndex !== -1) {
+      const wishIndex = this.events[eventIndex].wishes.findIndex(w => w.id === wishId);
+      if (wishIndex !== -1) {
+        this.events[eventIndex].wishes[wishIndex] = {
+          ...this.events[eventIndex].wishes[wishIndex],
+          ...updated,
+          updatedAt: new Date().toISOString()
+        };
+        storage.saveLocalEvents(this.events);
+      }
+    }
     this.notify();
     return true;
   }
@@ -312,26 +367,72 @@ class StateStore {
     const target = (active.wishes || []).find(w => w.id === wishId);
     if (!target) return false;
 
-    const isAllowed =
+    const cleanPin = (pinOrAdmin || "").trim();
+    const targetPin = String(target.reservePin || "").trim();
+    const adminPin = String(this.settings.adminPin || storage.getAdminPin() || "").trim();
+
+    const isAllowedLocally =
       this.isAdmin ||
-      !target.reservePin ||
-      target.reservePin === pinOrAdmin ||
-      pinOrAdmin === this.settings.adminPin;
+      !targetPin ||
+      targetPin === cleanPin ||
+      (adminPin && cleanPin === adminPin);
 
-    if (!isAllowed) return false;
+    if (targetPin && !this.isAdmin && !isAllowedLocally) {
+      return false;
+    }
 
-    const updated = {
-      ...target,
-      status: "available",
-      reservedBy: "",
-      reservedAt: null,
-      reserveNote: "",
-      reservePin: ""
-    };
+    try {
+      const serverRes = await storage.reserveWishOnServer(
+        active.id,
+        wishId,
+        "cancel",
+        "",
+        "",
+        cleanPin || (this.isAdmin ? adminPin : "")
+      );
 
-    this.events = await storage.updateWish(active.id, updated);
-    this.notify();
-    return true;
+      if (serverRes.success && serverRes.events) {
+        this.events = serverRes.events;
+        this.notify();
+        return true;
+      }
+
+      if (!serverRes.success && !serverRes.offline) {
+        // Server hat Storno abgelehnt (z. B. 403 Ungültige Storno-PIN)
+        return false;
+      }
+    } catch (e) {
+      console.warn("Server-Storno fehlgeschlagen, speichere lokal falls berechtigt:", e);
+    }
+
+    // Offline / Lokaler Fallback
+    if (isAllowedLocally) {
+      const updated = {
+        ...target,
+        status: "available",
+        reservedBy: "",
+        reservedAt: null,
+        reserveNote: "",
+        reservePin: ""
+      };
+
+      const eventIndex = this.events.findIndex(e => e.id === active.id);
+      if (eventIndex !== -1) {
+        const wishIndex = this.events[eventIndex].wishes.findIndex(w => w.id === wishId);
+        if (wishIndex !== -1) {
+          this.events[eventIndex].wishes[wishIndex] = {
+            ...this.events[eventIndex].wishes[wishIndex],
+            ...updated,
+            updatedAt: new Date().toISOString()
+          };
+          storage.saveLocalEvents(this.events);
+        }
+      }
+      this.notify();
+      return true;
+    }
+
+    return false;
   }
 
   async saveWish(wishData, targetEventId = null) {

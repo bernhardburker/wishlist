@@ -9,7 +9,7 @@ import { toast } from "./toast.js";
 export function renderCancelModal(container, wish) {
   if (!wish) return;
 
-  const hasPin = Boolean(wish.reservePin);
+  const hasPin = Boolean((wish.reservePin && String(wish.reservePin).trim()) || wish.hasReservePin);
   const isAdmin = state.isAdmin;
 
   const modalOverlay = document.createElement("div");
@@ -27,8 +27,8 @@ export function renderCancelModal(container, wish) {
         </p>
 
         <div class="reserved-info-box">
-          <span>Reserviert von: <strong>${escapeHtml(wish.reservedBy || "Unbekannt")}</strong></span>
-          ${wish.reserveNote ? `<p class="reserved-note-quote">„${escapeHtml(wish.reserveNote)}“</p>` : ""}
+          ${isAdmin && wish.reservedBy ? `<span>Reserviert von: <strong>${escapeHtml(wish.reservedBy)}</strong></span>` : `<span>Status: <strong>${wish.status === 'bought' ? 'Bereits besorgt' : 'Reserviert'}</strong></span>`}
+          ${isAdmin && wish.reserveNote ? `<p class="reserved-note-quote">„${escapeHtml(wish.reserveNote)}“</p>` : ""}
         </div>
 
         <form id="form-cancel" class="cancel-form">
@@ -81,17 +81,27 @@ export function renderCancelModal(container, wish) {
     e.preventDefault();
     const pinInput = form.querySelector("#input-cancel-pin");
     const pin = pinInput ? pinInput.value.trim() : "";
+    const submitBtn = form.querySelector("button[type='submit']");
 
-    const success = await state.cancelReservation(wish.id, pin);
-    if (success) {
-      toast.info(`Die Reservierung für "${escapeHtml(wish.title)}" wurde aufgehoben.`);
-      state.closeModal();
-    } else {
-      toast.error("Falscher PIN! Die Reservierung konnte nicht aufgehoben werden.");
-      if (pinInput) {
-        pinInput.value = "";
-        pinInput.focus();
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      const success = await state.cancelReservation(wish.id, pin);
+      if (success) {
+        toast.info(`Die Reservierung für "${escapeHtml(wish.title)}" wurde aufgehoben.`);
+        state.closeModal();
+      } else {
+        toast.error("Falscher PIN! Die Reservierung konnte nicht aufgehoben werden.");
+        if (pinInput) {
+          pinInput.value = "";
+          pinInput.focus();
+        }
       }
+    } catch (err) {
+      console.error("Fehler beim Stornieren:", err);
+      toast.error("Fehler beim Aufheben der Reservierung.");
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
   });
 

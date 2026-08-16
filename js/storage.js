@@ -152,10 +152,16 @@ export class StorageService {
   async loadEvents() {
     const baseUrl = this.getApiBaseUrl();
     const apiUrl = baseUrl ? `${baseUrl}/api/events` : `/api/events`;
+    const isAdmin = typeof sessionStorage !== "undefined" && sessionStorage.getItem("wunschliste_admin_active") === "true";
+    const adminPin = this.getAdminPin();
+    const headers = {};
+    if (isAdmin && adminPin) {
+      headers["X-Admin-Pin"] = adminPin;
+    }
 
     // 1. REST API versuchen
     try {
-      const res = await fetch(`${apiUrl}?_t=${Date.now()}`);
+      const res = await fetch(`${apiUrl}?_t=${Date.now()}`, { headers });
       if (res.ok) {
         const events = await res.json();
         if (Array.isArray(events) && events.length > 0) {
@@ -207,11 +213,17 @@ export class StorageService {
   async reserveWishOnServer(eventId, wishId, action = "reserve", name = "", note = "", pin = "") {
     const baseUrl = this.getApiBaseUrl();
     const apiUrl = baseUrl ? `${baseUrl}/api/reserve` : `/api/reserve`;
+    const adminPin = this.getAdminPin();
+
+    const headers = { "Content-Type": "application/json" };
+    if (adminPin) {
+      headers["X-Admin-Pin"] = adminPin;
+    }
 
     try {
       const res = await fetch(apiUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ eventId, wishId, action, name, note, pin })
       });
 
@@ -224,10 +236,10 @@ export class StorageService {
         return { success: true, wish: data.wish };
       } else {
         const errData = await res.json().catch(() => ({}));
-        return { success: false, error: errData.error || `HTTP ${res.status}` };
+        return { success: false, error: errData.error || `HTTP ${res.status}`, status: res.status };
       }
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.message, offline: true };
     }
   }
 
@@ -267,23 +279,9 @@ export class StorageService {
   }
 
   /**
-   * Aktualisiert einen einzelnen Wunsch
+   * Aktualisiert einen einzelnen Wunsch (Admin oder Lokalspeicher)
    */
   async updateWish(eventId, updatedWish) {
-    if (updatedWish.status === "reserved" && updatedWish.reservedBy) {
-      const serverRes = await this.reserveWishOnServer(
-        eventId,
-        updatedWish.id,
-        "reserve",
-        updatedWish.reservedBy,
-        updatedWish.note || "",
-        updatedWish.reservePin || ""
-      );
-      if (serverRes.success && serverRes.events) {
-        return serverRes.events;
-      }
-    }
-
     const events = await this.loadEvents();
     const event = events.find((e) => e.id === eventId || e.slug === eventId);
     if (!event) return events;
@@ -296,7 +294,11 @@ export class StorageService {
     }
 
     this.saveLocalEvents(events);
-    await this.syncWishToServer(eventId, updatedWish);
+    try {
+      await this.syncWishToServer(eventId, updatedWish);
+    } catch (e) {
+      console.warn("Konnte Wunsch nicht zum Server übertragen (Offline oder Gast-Modus):", e.message);
+    }
     return events;
   }
 

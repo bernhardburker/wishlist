@@ -114,7 +114,7 @@ export function createGiftCardElement(wish) {
           <div class="status-indicator status-reserved">
             <span class="status-icon">🔒</span>
             <div class="status-details">
-              <span class="status-label">Reserviert von <strong>${escapeHtml(wish.reservedBy || "Jemandem")}</strong></span>
+              <span class="status-label">${(state.isAdmin && wish.reservedBy) ? `Reserviert von <strong>${escapeHtml(wish.reservedBy)}</strong>` : "Reserviert"}</span>
               ${wish.reservedAt ? `<span class="status-time">${timeAgo(wish.reservedAt)}</span>` : ""}
             </div>
           </div>
@@ -124,7 +124,7 @@ export function createGiftCardElement(wish) {
           <div class="status-indicator status-bought">
             <span class="status-icon">🎁</span>
             <div class="status-details">
-              <span class="status-label">Bereits besorgt von <strong>${escapeHtml(wish.reservedBy || "Jemandem")}</strong></span>
+              <span class="status-label">${(state.isAdmin && wish.reservedBy) ? `Bereits besorgt von <strong>${escapeHtml(wish.reservedBy)}</strong>` : "Bereits besorgt"}</span>
               ${wish.reservedAt ? `<span class="status-time">${timeAgo(wish.reservedAt)}</span>` : ""}
             </div>
           </div>
