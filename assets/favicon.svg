@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="boxGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E11D48" />
+      <stop offset="100%" stop-color="#BE123C" />
+    </linearGradient>
+    <linearGradient id="ribbonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="15" fill="#FFF1F2" stroke="#FECDD3" stroke-width="1"/>
+  <!-- Gift Box Body -->
+  <rect x="7" y="14" width="18" height="12" rx="2" fill="url(#boxGrad)"/>
+  <!-- Gift Lid -->
+  <rect x="5.5" y="11" width="21" height="4" rx="1.5" fill="#E11D48"/>
+  <!-- Vertical Ribbon -->
+  <rect x="14" y="11" width="4" height="15" fill="url(#ribbonGrad)"/>
+  <!-- Bow -->
+  <path d="M12 9 C10 6, 14 6, 16 9 C18 6, 22 6, 20 9 C18 10, 14 10, 12 9 Z" fill="url(#ribbonGrad)"/>
+  <circle cx="16" cy="9.5" r="1.5" fill="#D97706"/>
+</svg>

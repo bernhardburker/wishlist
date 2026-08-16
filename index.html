@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unsere Wunschliste 🎁</title>
+  <meta name="description" content="Gemeinsame Wunschliste für Geschenke von Amazon, Smyths Toys und vielen weiteren Shops. Geschenke ansehen, filtern und einfach reservieren." />
+
+  <!-- OpenGraph / Social Media Sharing -->
+  <meta property="og:title" content="Unsere Wunschliste 🎁" />
+  <meta property="og:description" content="Finde passende Geschenkideen und reserviere Geschenke direkt online." />
+  <meta property="og:type" content="website" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg" />
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="./css/index.css" />
+  <link rel="stylesheet" href="./css/components.css" />
+  <link rel="stylesheet" href="./css/responsive.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header & Hero Section -->
+    <div id="header-root"></div>
+
+    <!-- Hauptbereich -->
+    <div class="main-container">
+      <!-- Filter- und Suchleiste -->
+      <nav id="filter-root" aria-label="Wunschliste filtern"></nav>
+
+      <!-- Geschenke-Raster / Grid -->
+      <main id="grid-root" aria-live="polite"></main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-content">
+        <p>Wunschliste &copy; 2026 &bull; Gehostet auf GitHub Pages</p>
+        <div class="footer-links">
+          <button type="button" id="btn-footer-admin">🔐 Listen-Verwaltung (Admin)</button>
+          <button type="button" id="btn-footer-cloud">☁️ Cloud-Synchronisation</button>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Modal Container -->
+  <div id="modal-root"></div>
+
+  <!-- JavaScript Module -->
+  <script type="module" src="./js/app.js"></script>
+
+  <!-- Footer Quick Hooks -->
+  <script type="module">
+    import { state } from "./js/state.js";
+    document.getElementById("btn-footer-admin")?.addEventListener("click", () => state.openModal("admin"));
+    document.getElementById("btn-footer-cloud")?.addEventListener("click", () => state.openModal("config"));
+  </script>
+</body>
+</html>

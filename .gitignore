@@ -1,0 +1,12 @@
+# Betriebssystem-Dateien
+.DS_Store
+Thumbs.db
+
+# Temporäre Dateien & Logs
+*.log
+.vscode/
+.idea/
+
+# Environment-Variablen (falls genutzt)
+.env
+.env.local
