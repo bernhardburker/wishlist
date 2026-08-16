@@ -108,12 +108,16 @@
   background-color: var(--text-light);
 }
 
-.cloud-online .status-dot {
+.cloud-online .status-dot,
+.github-online .status-dot,
+.server-online .status-dot {
   background-color: var(--color-success);
   box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
 }
 
-.cloud-local .status-dot {
+.cloud-local .status-dot,
+.github-local .status-dot,
+.server-local .status-dot {
   background-color: var(--color-accent);
 }
 
@@ -1028,25 +1032,100 @@
   margin: 1.25rem 0;
 }
 
-.setup-instructions-details {
-  margin-top: 1rem;
-  padding: 0.75rem;
+/* Burkerserver Config & Status Modal */
+.modal-config {
+  max-width: 580px;
+}
+
+.server-info-card {
   background-color: var(--bg-surface-alt);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 1.15rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.server-info-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.server-badge-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.server-info-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  color: var(--text-primary);
+}
+
+.server-info-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.server-features-list {
+  margin-top: 1.25rem;
+  background-color: var(--bg-surface-alt);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
+  padding: 0.85rem 1.15rem;
   font-size: 0.85rem;
 }
 
-.setup-instructions-details summary { font-weight: 600; cursor: pointer; }
+.server-features-list h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
 
-.sql-snippet-box {
-  background-color: #0F172A;
-  color: #F8FAFC;
-  padding: 0.75rem;
-  border-radius: var(--radius-sm);
-  font-family: monospace;
-  font-size: 0.75rem;
-  overflow-x: auto;
-  margin-top: 0.5rem;
+.server-features-list ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.test-result-box {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  margin: 1rem 0;
+  animation: fadeIn 200ms ease;
+}
+
+.test-result-box.info {
+  background-color: var(--bg-surface-alt);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+}
+
+.test-result-box.success {
+  background-color: #ECFDF5;
+  border: 1px solid #10B981;
+  color: #065F46;
+}
+
+.test-result-box.error {
+  background-color: #FEF2F2;
+  border: 1px solid #EF4444;
+  color: #991B1B;
+}
+
+.sync-actions-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.25rem 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-default);
 }
 
 

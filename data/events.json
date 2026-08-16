@@ -18,11 +18,12 @@
         "image": "https://images.unsplash.com/photo-1585366119957-e9730b6d0f60?w=600&auto=format&fit=crop&q=80",
         "description": "Großer Wunsch für spannende Bauabenteuer. Gibt es bei Smyths Toys oder direkt bei Lego.",
         "shopName": "Smyths Toys",
-        "status": "available",
-        "reservedBy": "",
-        "reservedAt": null,
-        "note": "Set 60378",
-        "reservePin": ""
+        "status": "reserved",
+        "reservedBy": "Test Gast",
+        "reservedAt": "2026-08-16T12:04:38.717773",
+        "note": "Freue mich",
+        "reservePin": "9999",
+        "updatedAt": "2026-08-16T12:04:38.717783"
       },
       {
         "id": "wish-2",

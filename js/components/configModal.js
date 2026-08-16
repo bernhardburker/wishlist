@@ -1,5 +1,5 @@
 /**
- * Cloud-Sync Konfigurations-Modal (Supabase)
+ * Server-Status & Verbindungs-Modal für den Burkerserver
  */
 
 import { state } from "../state.js";
@@ -8,145 +8,133 @@ import { escapeHtml } from "../utils/helpers.js";
 import { toast } from "./toast.js";
 
 export function renderConfigModal(container) {
-  const currentConfig = storage.getCloudConfig();
+  const currentConfig = storage.getServerConfig();
+  const currentOrigin = window.location.origin;
 
   const modalOverlay = document.createElement("div");
   modalOverlay.className = "modal-overlay";
   modalOverlay.innerHTML = `
     <div class="modal-card modal-config" role="dialog" aria-labelledby="modal-config-title">
       <div class="modal-header">
-        <h2 id="modal-config-title" class="modal-title">☁️ Live Cloud-Synchronisation</h2>
+        <h2 id="modal-config-title" class="modal-title">🖥️ Burkerserver Speicher &amp; Status</h2>
         <button class="modal-close-btn" aria-label="Schließen">&times;</button>
       </div>
 
       <div class="modal-body modal-body-scrollable">
-        <div class="cloud-explainer">
-          <p>
-            Standardmäßig speichert die Wunschliste alle Daten direkt in deinem Browser (<strong>Offline/Lokal</strong>).
-          </p>
-          <p>
-            Damit <strong>Freunde &amp; Familie</strong> auf ihren eigenen Handys oder Computern in Echtzeit sehen, welche Geschenke noch frei oder reserviert sind, kannst du hier ein kostenloses <strong>Supabase</strong> Backend verbinden.
-          </p>
+        <div class="server-info-card">
+          <div class="server-info-header">
+            <span class="server-badge-icon">🖧</span>
+            <div>
+              <h3 class="server-info-title">Eigener Server-Datenspeicher</h3>
+              <p class="server-info-subtitle">Alle Wünsche und Reservierungen werden direkt auf deinem Burkerserver in <code>data/events.json</code> gespeichert.</p>
+            </div>
+          </div>
         </div>
 
-        <form id="form-cloud-config" class="cloud-form">
+        <form id="form-server-config" class="server-form">
           <div class="form-group">
-            <label class="toggle-label">
-              <input type="checkbox" id="cloud-enabled" ${currentConfig.enabled ? 'checked' : ''} />
-              <span class="toggle-text"><strong>Cloud-Synchronisation aktivieren</strong></span>
-            </label>
-          </div>
-
-          <div class="form-group">
-            <label for="cloud-url" class="form-label">Supabase Project URL:</label>
+            <label for="server-url" class="form-label">Server / Domain URL (optional):</label>
             <input
-              type="url"
-              id="cloud-url"
+              type="text"
+              id="server-url"
               class="form-input"
-              placeholder="https://xyzabcdefg.supabase.co"
-              value="${escapeHtml(currentConfig.url || '')}"
+              placeholder="z. B. https://wunschliste.burker.at (leer lassen für automatische Erkennung)"
+              value="${escapeHtml(currentConfig.serverUrl || "")}"
             />
+            <p class="form-hint">
+              Wenn du die Wunschliste direkt über deine Domain aufrufst, wird die Verbindung automatisch hergestellt.
+            </p>
           </div>
 
-          <div class="form-group">
-            <label for="cloud-key" class="form-label">Supabase Anon Public Key:</label>
-            <input
-              type="password"
-              id="cloud-key"
-              class="form-input"
-              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-              value="${escapeHtml(currentConfig.anonKey || '')}"
-            />
-          </div>
+          <!-- Live Verbindungstest -->
+          <div id="server-test-result" class="test-result-box" style="display: none;"></div>
 
-          <div class="modal-actions">
-            <button type="button" class="btn btn-ghost btn-cancel-modal">Abbrechen</button>
-            <button type="submit" class="btn btn-primary">
-              <span>Speichern &amp; Verbinden</span>
+          <div class="sync-actions-box">
+            <button type="button" id="btn-test-server" class="btn btn-secondary btn-sm">
+              🔌 Verbindung testen
+            </button>
+            <button type="button" id="btn-reload-server" class="btn btn-outline btn-sm">
+              🔄 Daten vom Server neu laden
             </button>
           </div>
-        </form>
 
-        <details class="setup-instructions-details">
-          <summary>📋 Kurzanleitung: Supabase in 2 Minuten einrichten (Kostenlos)</summary>
-          <div class="details-content">
-            <ol>
-              <li>Kostenlos registrieren auf <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a> und ein neues Projekt erstellen.</li>
-              <li>Im Menü auf <strong>SQL Editor</strong> klicken, auf <strong>New query</strong> gehen und folgenden Code ausführen:</li>
-            </ol>
-            <div class="sql-snippet-box">
-              <pre><code>create table wishes (
-  id text primary key,
-  title text not null,
-  url text,
-  price numeric,
-  category text,
-  priority text,
-  image text,
-  description text,
-  note text,
-  "shopName" text,
-  status text default 'available',
-  "reservedBy" text,
-  "reservedAt" timestamp with time zone,
-  "reserveNote" text,
-  "reservePin" text,
-  "createdAt" timestamp with time zone default now(),
-  "updatedAt" timestamp with time zone default now()
-);
-
-alter table wishes enable row level security;
-create policy "Public Access" on wishes for all using (true) with check (true);</code></pre>
-              <button type="button" id="btn-copy-sql" class="btn btn-sm btn-outline">SQL kopieren 📋</button>
-            </div>
-            <p>3. Unter <strong>Project Settings -> API</strong> die <em>Project URL</em> und den <em>anon public key</em> kopieren und oben eintragen.</p>
+          <div class="server-features-list">
+            <h4>🛡️ Deine Vorteile auf dem Burkerserver:</h4>
+            <ul>
+              <li><strong>100% Privat:</strong> Keine Daten bei GitHub, Google oder Supabase.</li>
+              <li><strong>Einfach für Gäste:</strong> Familie &amp; Freunde können ohne Logins oder Tokens sofort reservieren.</li>
+              <li><strong>Atomare Speicherung:</strong> Verhindert Datenverlust bei gleichzeitigen Zugriffen.</li>
+            </ul>
           </div>
-        </details>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary modal-cancel-btn">Schließen</button>
+            <button type="submit" class="btn btn-primary">💾 Speichern</button>
+          </div>
+        </form>
       </div>
     </div>
   `;
 
-  // Close logic
-  const closeModal = () => {
-    modalOverlay.classList.add("modal-leaving");
-    setTimeout(() => {
-      state.closeModal();
-    }, 200);
+  container.appendChild(modalOverlay);
+
+  const close = () => {
+    modalOverlay.remove();
+    state.closeModal();
   };
 
-  modalOverlay.querySelector(".modal-close-btn").addEventListener("click", closeModal);
-  modalOverlay.querySelector(".btn-cancel-modal").addEventListener("click", closeModal);
+  modalOverlay.querySelector(".modal-close-btn").addEventListener("click", close);
+  modalOverlay.querySelector(".modal-cancel-btn").addEventListener("click", close);
   modalOverlay.addEventListener("click", (e) => {
-    if (e.target === modalOverlay) closeModal();
+    if (e.target === modalOverlay) close();
   });
 
-  // SQL Copy Button
-  const btnCopySql = modalOverlay.querySelector("#btn-copy-sql");
-  if (btnCopySql) {
-    btnCopySql.addEventListener("click", () => {
-      const sqlCode = modalOverlay.querySelector(".sql-snippet-box code").textContent;
-      navigator.clipboard.writeText(sqlCode).then(() => {
-        btnCopySql.textContent = "Kopiert! ✅";
-        setTimeout(() => {
-          btnCopySql.textContent = "SQL kopieren 📋";
-        }, 2000);
-      });
-    });
-  }
+  const form = modalOverlay.querySelector("#form-server-config");
+  const resultBox = modalOverlay.querySelector("#server-test-result");
 
-  // Form Submit
-  const form = modalOverlay.querySelector("#form-cloud-config");
-  form.addEventListener("submit", async (e) => {
+  // Verbindungstest
+  const btnTest = modalOverlay.querySelector("#btn-test-server");
+  btnTest.addEventListener("click", async () => {
+    const urlInput = form.querySelector("#server-url").value.trim();
+    resultBox.style.display = "block";
+    resultBox.className = "test-result-box info";
+    resultBox.textContent = "⏳ Prüfe Verbindung zum Server...";
+
+    const res = await storage.testServerConnection(urlInput);
+    if (res.success) {
+      resultBox.className = "test-result-box success";
+      resultBox.innerHTML = `<strong>✔ Verbindung erfolgreich!</strong><br>${escapeHtml(res.message)}`;
+    } else {
+      resultBox.className = "test-result-box error";
+      resultBox.innerHTML = `<strong>✖ Verbindung fehlgeschlagen:</strong><br>${escapeHtml(res.message)}`;
+    }
+  });
+
+  // Reload
+  const btnReload = modalOverlay.querySelector("#btn-reload-server");
+  btnReload.addEventListener("click", async () => {
+    btnReload.disabled = true;
+    btnReload.textContent = "⏳ Lade...";
+    const events = await storage.loadEvents();
+    btnReload.disabled = false;
+    btnReload.textContent = "🔄 Daten vom Server neu laden";
+
+    if (events && events.length > 0) {
+      state.setEvents(events);
+      toast.success("Daten erfolgreich vom Server aktualisiert!");
+      close();
+    } else {
+      toast.error("Konnte Daten nicht vom Server laden.");
+    }
+  });
+
+  // Speichern
+  form.addEventListener("submit", (e) => {
     e.preventDefault();
-    const enabled = form.querySelector("#cloud-enabled").checked;
-    const url = form.querySelector("#cloud-url").value.trim();
-    const anonKey = form.querySelector("#cloud-key").value.trim();
-
-    storage.saveCloudConfig({ enabled, url, anonKey });
-    await state.init();
-    toast.success(enabled ? "Cloud-Synchronisation eingerichtet!" : "Lokaler Modus aktiv.");
-    state.closeModal();
+    const serverUrl = form.querySelector("#server-url").value.trim();
+    storage.saveServerConfig({ serverUrl });
+    toast.success("Server-Einstellungen gespeichert!");
+    state.notify();
+    close();
   });
-
-  container.appendChild(modalOverlay);
 }

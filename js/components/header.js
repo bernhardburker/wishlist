@@ -1,32 +1,33 @@
 /**
- * Header-Komponente mit Multi-Event-Umschalter, Direktlink-Kopierer und Schnellstatistik
+ * Header-Komponente mit Event-Umschalter, Burkerserver-Status, Sharing & Statistiken
  */
 
 import { state } from "../state.js";
-import { escapeHtml } from "../utils/helpers.js";
 import { storage } from "../storage.js";
+import { escapeHtml } from "../utils/helpers.js";
 import { toast } from "./toast.js";
 
-function formatDateBadge(dateStr) {
-  if (!dateStr) return "";
+function renderDateBadge(dateString) {
+  if (!dateString) return "";
   try {
-    const eventDate = new Date(dateStr);
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return "";
+    const options = { year: "numeric", month: "long", day: "numeric" };
+    const formatted = d.toLocaleDateString("de-DE", options);
+
+    // Berechne verbleibende Tage
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    eventDate.setHours(0, 0, 0, 0);
-
-    const diffDays = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
-    const formatted = eventDate.toLocaleDateString("de-DE", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric"
-    });
+    const target = new Date(d);
+    target.setHours(0, 0, 0, 0);
+    const diffTime = target.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     let relative = "";
-    if (diffDays === 0) relative = "Heute! 🎉";
-    else if (diffDays === 1) relative = "Morgen! 🎈";
-    else if (diffDays > 1) relative = `in ${diffDays} Tagen`;
-    else relative = "Bereits stattgefunden";
+    if (diffDays === 0) relative = "Heute!";
+    else if (diffDays === 1) relative = "Morgen";
+    else if (diffDays > 1) relative = `noch ${diffDays} Tage`;
+    else if (diffDays < 0) relative = `vor ${Math.abs(diffDays)} Tagen`;
 
     return `<div class="event-date-badge" title="Datum der Feier: ${formatted}">
       <span class="date-icon">🗓️</span>
@@ -45,8 +46,6 @@ export function renderHeader(container) {
     icon: "🎁"
   };
   const events = state.events || [];
-  const cloudConfig = storage.getCloudConfig();
-  const isCloudActive = cloudConfig.enabled && cloudConfig.url;
 
   container.innerHTML = `
     <header class="app-header">
@@ -76,9 +75,9 @@ export function renderHeader(container) {
             <span>📋 Link teilen</span>
           </button>
 
-          <button id="btn-cloud-status" class="action-pill-btn ${isCloudActive ? 'cloud-online' : 'cloud-local'}" title="${isCloudActive ? 'Echtzeit Cloud-Sync aktiv' : 'Lokaler Demo-Modus (Klicke für Cloud-Setup)'}">
+          <button id="btn-server-status" class="action-pill-btn server-online" title="Verbunden mit Burkerserver (Klicke für Status)">
             <span class="status-dot"></span>
-            <span class="btn-text">${isCloudActive ? 'Cloud Synchron' : 'Lokal / Offline'}</span>
+            <span class="btn-text">🖥️ Burkerserver</span>
           </button>
 
           ${state.isAdmin ? `
@@ -99,26 +98,40 @@ export function renderHeader(container) {
         </div>
       </div>
 
-      <div class="hero-section">
-        ${formatDateBadge(activeEvent.date)}
-        <h1 class="hero-title">${escapeHtml(activeEvent.title || "Unsere Wunschliste")}</h1>
-        <p class="hero-subtitle">${escapeHtml(activeEvent.subtitle || "Hier sind alle Geschenkideen gesammelt.")}</p>
+      <div class="header-hero">
+        <div class="hero-icon-large">${escapeHtml(activeEvent.icon || "🎁")}</div>
+        <h1 class="header-title">${escapeHtml(activeEvent.title)}</h1>
+        ${activeEvent.subtitle ? `<p class="header-subtitle">${escapeHtml(activeEvent.subtitle)}</p>` : ""}
+        ${renderDateBadge(activeEvent.date)}
+      </div>
 
-        <div class="stats-overview">
-          <div class="stat-card">
-            <span class="stat-value">${stats.total}</span>
-            <span class="stat-label">Wünsche gesamt</span>
-          </div>
-          <div class="stat-card stat-available">
-            <span class="stat-value">${stats.available}</span>
-            <span class="stat-label">Noch verfügbar</span>
-          </div>
-          <div class="stat-card stat-reserved">
-            <span class="stat-value">${stats.reserved + stats.bought}</span>
-            <span class="stat-label">Bereits vergeben</span>
-          </div>
+      <div class="stats-bar">
+        <div class="stat-card">
+          <span class="stat-value">${stats.total}</span>
+          <span class="stat-label">Gesamtwünsche</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-card">
+          <span class="stat-value stat-available">${stats.available}</span>
+          <span class="stat-label">Noch frei</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-card">
+          <span class="stat-value stat-reserved">${stats.reserved}</span>
+          <span class="stat-label">Bereits reserviert</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-card">
+          <span class="stat-value">${stats.highPriority}</span>
+          <span class="stat-label">Besonders wichtig</span>
         </div>
       </div>
+
+      ${stats.total > 0 ? `
+        <div class="progress-container" title="${stats.percentReserved}% der Geschenke reserviert">
+          <div class="progress-bar" style="width: ${stats.percentReserved}%;"></div>
+        </div>
+      ` : ""}
     </header>
   `;
 
@@ -137,17 +150,17 @@ export function renderHeader(container) {
       const active = state.getActiveEvent();
       const currentUrl = window.location.origin + window.location.pathname + (active ? `#${active.slug || active.id}` : "");
       navigator.clipboard.writeText(currentUrl).then(() => {
-        toast.success("Direktlink für diese Veranstaltung in die Zwischenablage kopiert! 📋");
+        toast.success("Direktlink für Gäste in die Zwischenablage kopiert! 📋");
       }).catch(() => {
         prompt("Kopiere diesen Link für deine Gäste:", currentUrl);
       });
     });
   }
 
-  // Other buttons
-  const btnCloud = container.querySelector("#btn-cloud-status");
-  if (btnCloud) {
-    btnCloud.addEventListener("click", () => state.openModal("config"));
+  // Server Status Modal Button
+  const btnServer = container.querySelector("#btn-server-status");
+  if (btnServer) {
+    btnServer.addEventListener("click", () => state.openModal("config"));
   }
 
   const btnOpenAdmin = container.querySelector("#btn-open-admin");

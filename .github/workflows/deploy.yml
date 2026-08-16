@@ -1,0 +1,52 @@
+name: Deploy Wunschliste to Burkerserver
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-wunschliste
+  cancel-in-progress: false
+
+jobs:
+  # ── 1. Tests & Validierung auf dem lokalen Runner (Burkerserver) ───────────
+  test:
+    name: 🧪 Tests & Validierung
+    runs-on: self-hosted
+    steps:
+      - name: 📥 Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: 🐍 CI-Testsuite ausführen
+        run: |
+          python3 scripts/test_app.py
+
+  # ── 2. Deployment & Service-Neustart auf dem Burkerserver ───────────────────
+  deploy:
+    name: 🚀 Deploy auf Burkerserver
+    needs: test
+    runs-on: self-hosted
+    steps:
+      - name: 📥 Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: 📦 Deployment & Service Upgrade
+        run: |
+          chmod +x deploy/upgrade.sh
+          ./deploy/upgrade.sh /mnt/data/work/wunschliste
+
+      - name: 🩺 Smoke Test & Health Check
+        run: |
+          echo "Prüfe Live-Status der Wunschliste API auf dem Burkerserver..."
+          for i in {1..15}; do
+            if curl --fail --silent http://127.0.0.1:8000/api/health > /dev/null; then
+              echo "✔ Wunschliste läuft einwandfrei auf http://127.0.0.1:8000"
+              exit 0
+            fi
+            echo "Warte auf Server (Versuch $i/15)..."
+            sleep 2
+          done
+          echo "❌ Server reagiert nicht auf http://127.0.0.1:8000/api/health"
+          exit 1

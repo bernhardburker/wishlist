@@ -1,0 +1,17 @@
+[Unit]
+Description=Wunschliste REST-API & Webserver (Burkerserver)
+After=network.target
+
+[Service]
+Type=simple
+User=berni
+WorkingDirectory=/mnt/data/work/wunschliste
+ExecStart=/usr/bin/python3 /mnt/data/work/wunschliste/server.py
+Restart=always
+RestartSec=5
+Environment=PORT=8000
+Environment=ADMIN_PIN=1234
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

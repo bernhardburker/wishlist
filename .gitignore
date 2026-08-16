@@ -10,3 +10,7 @@ Thumbs.db
 # Environment-Variablen (falls genutzt)
 .env
 .env.local
+
+# Python Cache
+__pycache__/
+*.py[cod]

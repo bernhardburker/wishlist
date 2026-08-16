@@ -30,12 +30,15 @@ def test_file_structure():
         "README.md",
         "server.py",
         ".github/workflows/ci.yml",
-        ".github/workflows/cd.yml",
+        ".github/workflows/deploy.yml",
+        "deploy/upgrade.sh",
+        "deploy/wunschliste.service",
         "css/index.css",
         "css/components.css",
         "css/responsive.css",
         "assets/favicon.svg",
         "data/default-wishes.js",
+        "data/events.json",
         "js/app.js",
         "js/state.js",
         "js/storage.js",
@@ -111,20 +114,20 @@ def test_css_variables():
     return all_ok
 
 def test_server_and_routes():
-    print("\n🚀 4. Überprüfe lokalen Webserver & Modulauslieferung...")
+    print("\n🚀 4. Überprüfe lokalen Webserver & REST-API Endpunkte...")
     PORT = 8999
-    Handler = http.server.SimpleHTTPRequestHandler
+    sys.path.insert(0, PROJECT_ROOT)
+    from server import WunschlisteHandler
 
     class TestServer(threading.Thread):
         def run(self):
             socketserver.TCPServer.allow_reuse_address = True
-            with socketserver.TCPServer(("", PORT), Handler) as httpd:
+            with socketserver.TCPServer(("", PORT), WunschlisteHandler) as httpd:
                 self.httpd = httpd
                 httpd.serve_forever()
         def stop(self):
             self.httpd.shutdown()
 
-    # Wechsle ins Root-Verzeichnis für den Server
     cwd = os.getcwd()
     os.chdir(PROJECT_ROOT)
     server = TestServer()
@@ -142,7 +145,10 @@ def test_server_and_routes():
         "/js/storage.js",
         "/js/utils/csvHelper.js",
         "/js/utils/shopHelper.js",
-        "/assets/favicon.svg"
+        "/data/events.json",
+        "/assets/favicon.svg",
+        "/api/health",
+        "/api/events"
     ]
 
     all_ok = True
@@ -152,13 +158,45 @@ def test_server_and_routes():
             try:
                 with urllib.request.urlopen(req_url) as res:
                     if res.status == 200:
-                        log_pass(f"HTTP 200 OK: {url} ({len(res.read())} Bytes)")
+                        content = res.read()
+                        log_pass(f"HTTP 200 OK: {url} ({len(content)} Bytes)")
                     else:
                         log_fail(f"HTTP {res.status}: {url}")
                         all_ok = False
             except Exception as e:
                 log_fail(f"Fehler bei {url}: {e}")
                 all_ok = False
+
+        # Test POST /api/reserve
+        try:
+            reserve_data = json.dumps({
+                "eventId": "geburtstag-2026",
+                "wishId": "wish-1",
+                "action": "reserve",
+                "name": "Test Gast",
+                "note": "Freue mich",
+                "pin": "9999"
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                f"http://localhost:{PORT}/api/reserve",
+                data=reserve_data,
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req) as res:
+                if res.status == 200:
+                    resp_json = json.loads(res.read().decode("utf-8"))
+                    if resp_json.get("success"):
+                        log_pass("POST /api/reserve: Reservierungs-API funktioniert einwandfrei")
+                    else:
+                        log_fail(f"POST /api/reserve antwortete ohne Erfolg: {resp_json}")
+                        all_ok = False
+                else:
+                    log_fail(f"POST /api/reserve Status: {res.status}")
+                    all_ok = False
+        except Exception as e:
+            log_fail(f"Fehler beim Testen von POST /api/reserve: {e}")
+            all_ok = False
+
     finally:
         server.stop()
         os.chdir(cwd)
