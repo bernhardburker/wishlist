@@ -44,11 +44,11 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
                 type="password"
                 id="admin-pin-input"
                 class="form-input"
-                placeholder="Standard-PIN: 1234"
+                placeholder="4-stellige Admin-PIN eingeben"
                 required
                 autofocus
               />
-              <span class="form-hint">Hinweis: Der Standard-PIN ist <strong>1234</strong>.</span>
+              <span class="form-hint">Zugriff nur für berechtigte Listen-Verwalter.</span>
             </div>
             <div class="modal-actions">
               <button type="button" class="btn btn-ghost btn-cancel-modal">Abbrechen</button>
@@ -68,14 +68,25 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
     });
 
     const loginForm = modalOverlay.querySelector("#form-admin-login");
-    loginForm.addEventListener("submit", (e) => {
+    loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const pin = loginForm.querySelector("#admin-pin-input").value.trim();
-      if (state.loginAdmin(pin)) {
+      const pinInput = loginForm.querySelector("#admin-pin-input");
+      const pin = pinInput.value.trim();
+      const submitBtn = loginForm.querySelector("button[type='submit']");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Prüfe...";
+
+      const success = await state.loginAdmin(pin);
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Entsperren 🔓";
+
+      if (success) {
         toast.success("Admin-Modus erfolgreich aktiviert!");
         state.openModal(modalType, editingWish);
       } else {
         toast.error("Falscher PIN! Bitte versuche es erneut.");
+        pinInput.value = "";
+        pinInput.focus();
       }
     });
 
@@ -411,14 +422,20 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
             <form id="form-admin-pin-settings" style="margin-bottom: 1.5rem;">
               <div class="form-group">
                 <label for="setting-admin-pin" class="form-label">Admin-PIN ändern:</label>
-                <input
-                  type="text"
-                  id="setting-admin-pin"
-                  class="form-input"
-                  value="${escapeHtml(settings.adminPin)}"
-                  required
-                />
-                <span class="form-hint">Mit diesem PIN entsperrst du diesen Verwaltungsbereich.</span>
+                <div class="input-with-action">
+                  <input
+                    type="password"
+                    id="setting-admin-pin"
+                    class="form-input"
+                    placeholder="Neue 4-stellige PIN"
+                    value="${escapeHtml(settings.adminPin || '')}"
+                    required
+                  />
+                  <button type="button" id="btn-toggle-setting-pin" class="btn-input-action" title="PIN anzeigen/verbergen">
+                    👁️
+                  </button>
+                </div>
+                <span class="form-hint">Mit dieser PIN entsperrst du den Verwaltungsbereich.</span>
               </div>
               <button type="submit" class="btn btn-sm btn-secondary">PIN speichern</button>
             </form>
@@ -512,10 +529,22 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
       const slug = modalOverlay.querySelector("#event-slug-input").value.trim();
       const subtitle = modalOverlay.querySelector("#event-subtitle-input").value.trim();
 
-      const saved = await state.saveEvent({ id, title, icon, date, slug, subtitle });
-      toast.success(`Veranstaltung "${escapeHtml(title)}" gespeichert!`);
-      state.setActiveEvent(saved.id);
-      eventEditorCard.style.display = "none";
+      const submitBtn = formEventEditor.querySelector("button[type='submit']");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Speichere...";
+
+      try {
+        const saved = await state.saveEvent({ id, title, icon, date, slug, subtitle });
+        toast.success(`Veranstaltung "${escapeHtml(title)}" gespeichert!`);
+        if (saved && saved.id) {
+          state.setActiveEvent(saved.id);
+        }
+        eventEditorCard.style.display = "none";
+      } catch (err) {
+        toast.error(`Fehler beim Speichern der Veranstaltung: ${err.message}`);
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Speichern";
+      }
     });
   }
 
@@ -531,7 +560,7 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
   modalOverlay.querySelectorAll(".btn-edit-event").forEach(btn => {
     btn.addEventListener("click", () => {
       const evId = btn.getAttribute("data-id");
-      const ev = events.find(e => e.id === evId);
+      const ev = (state.events || []).find(e => e.id === evId);
       if (ev) {
         modalOverlay.querySelector("#event-editor-title").textContent = `Veranstaltung bearbeiten: ${ev.title}`;
         modalOverlay.querySelector("#event-edit-id").value = ev.id;
@@ -548,13 +577,13 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
   modalOverlay.querySelectorAll(".btn-delete-event").forEach(btn => {
     btn.addEventListener("click", async () => {
       const evId = btn.getAttribute("data-id");
-      const ev = events.find(e => e.id === evId);
+      const ev = (state.events || []).find(e => e.id === evId);
       if (confirm(`Möchtest du die Veranstaltung "${ev ? ev.title : ''}" wirklich löschen? Alle zugehörigen Wünsche werden gelöscht.`)) {
         try {
           await state.deleteEvent(evId);
           toast.info("Veranstaltung gelöscht.");
         } catch (err) {
-          toast.error(err.message);
+          toast.error(err.message || "Fehler beim Löschen");
         }
       }
     });
@@ -729,12 +758,29 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
   // BACKUP & PIN SETTINGS
   // ==========================================
   const formPin = modalOverlay.querySelector("#form-admin-pin-settings");
-  if (formPin) {
-    formPin.addEventListener("submit", (e) => {
+  const togglePinBtn = modalOverlay.querySelector("#btn-toggle-setting-pin");
+  const pinSettingInput = modalOverlay.querySelector("#setting-admin-pin");
+
+  if (togglePinBtn && pinSettingInput) {
+    togglePinBtn.addEventListener("click", () => {
+      if (pinSettingInput.type === "password") {
+        pinSettingInput.type = "text";
+        togglePinBtn.textContent = "🙈";
+      } else {
+        pinSettingInput.type = "password";
+        togglePinBtn.textContent = "👁️";
+      }
+    });
+  }
+
+  if (formPin && pinSettingInput) {
+    formPin.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const pin = modalOverlay.querySelector("#setting-admin-pin").value.trim();
-      state.updateSettings({ adminPin: pin });
-      toast.success("Admin-PIN erfolgreich geändert!");
+      const pin = pinSettingInput.value.trim();
+      if (pin) {
+        await state.updateSettings({ adminPin: pin });
+        toast.success("Admin-PIN erfolgreich geändert und gespeichert!");
+      }
     });
   }
 

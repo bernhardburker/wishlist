@@ -87,7 +87,7 @@ export function renderReserveModal(container, wish) {
               maxlength="4"
               id="input-reserve-pin"
               class="form-input"
-              placeholder="z. B. 1234"
+              placeholder="z. B. 5821"
             />
             <span class="form-hint">Falls du deine Reservierung später selbst wieder freigeben möchtest.</span>
           </div>

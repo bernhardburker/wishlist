@@ -196,10 +196,12 @@ class StateStore {
   }
 
   // --- Admin-Modus ---
-  loginAdmin(pin) {
-    if (pin === this.settings.adminPin) {
+  async loginAdmin(pin) {
+    const isValid = await storage.verifyAdminPin(pin);
+    if (isValid) {
       this.isAdmin = true;
       sessionStorage.setItem("wunschliste_admin_active", "true");
+      storage.setAdminPin(pin);
       this.notify();
       return true;
     }
@@ -209,6 +211,7 @@ class StateStore {
   logoutAdmin() {
     this.isAdmin = false;
     sessionStorage.removeItem("wunschliste_admin_active");
+    sessionStorage.removeItem("wunschliste_admin_pin");
     this.notify();
   }
 
@@ -230,8 +233,7 @@ class StateStore {
   // --- Veranstaltungen manipulieren ---
   async saveEvent(eventData) {
     if (!this.isAdmin) {
-      console.warn("Veranstaltungen verwalten ist nur im Admin-Bereich erlaubt.");
-      return null;
+      throw new Error("Veranstaltungen verwalten ist nur im Admin-Bereich erlaubt.");
     }
     const slug = eventData.slug || eventData.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const payload = {
@@ -245,7 +247,7 @@ class StateStore {
     };
 
     this.events = await storage.saveEvent(payload);
-    if (!this.activeEventId) {
+    if (!this.activeEventId || eventData.id === this.activeEventId) {
       this.activeEventId = payload.id;
     }
     this.notify();
@@ -254,14 +256,14 @@ class StateStore {
 
   async deleteEvent(eventId) {
     if (!this.isAdmin) {
-      console.warn("Veranstaltungen löschen ist nur im Admin-Bereich erlaubt.");
-      return;
+      throw new Error("Veranstaltungen löschen ist nur im Admin-Bereich erlaubt.");
     }
     this.events = await storage.deleteEvent(eventId);
     if (this.activeEventId === eventId) {
       this.activeEventId = this.events[0] ? this.events[0].id : "";
     }
     this.notify();
+    return this.events;
   }
 
   // --- Wünsche manipulieren ---

@@ -9,7 +9,8 @@ const STORAGE_KEYS = {
   EVENTS: "wunschliste_events_v2",
   SETTINGS: "wunschliste_settings_v2",
   SERVER_CONFIG: "wunschliste_server_config_v2",
-  SAVED_USER: "wunschliste_saved_username_v2"
+  SAVED_USER: "wunschliste_saved_username_v2",
+  ADMIN_PIN: "wunschliste_admin_pin"
 };
 
 export class StorageService {
@@ -30,18 +31,13 @@ export class StorageService {
       console.warn("Fehler beim Lesen der Server-Konfiguration:", e);
     }
 
-    // Standardmäßig: Wenn die Seite auf einem eigenen Server / Port läuft, nutze relative API
     const isLocalOrSelfHosted = window.location.hostname !== "localhost" && !window.location.hostname.endsWith("github.io");
     return {
       enabled: isLocalOrSelfHosted,
-      serverUrl: isLocalOrSelfHosted ? window.location.origin : "",
-      adminPin: "1234"
+      serverUrl: isLocalOrSelfHosted ? window.location.origin : ""
     };
   }
 
-  /**
-   * Speichert die Server-Konfiguration
-   */
   saveServerConfig(config) {
     this.serverConfig = {
       ...this.getServerConfig(),
@@ -68,6 +64,49 @@ export class StorageService {
     }
   }
 
+  getAdminPin() {
+    return (
+      sessionStorage.getItem(STORAGE_KEYS.ADMIN_PIN) ||
+      localStorage.getItem(STORAGE_KEYS.ADMIN_PIN) ||
+      this.loadSettings().adminPin ||
+      ""
+    );
+  }
+
+  setAdminPin(pin) {
+    if (pin) {
+      sessionStorage.setItem(STORAGE_KEYS.ADMIN_PIN, pin.trim());
+    }
+  }
+
+  /**
+   * Verifiziert den Admin-PIN gegen den Server
+   */
+  async verifyAdminPin(pin) {
+    const baseUrl = this.getApiBaseUrl();
+    const apiUrl = baseUrl ? `${baseUrl}/api/admin/verify` : `/api/admin/verify`;
+
+    try {
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: pin.trim() })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data.valid === "boolean") {
+          return data.valid;
+        }
+      }
+    } catch (e) {
+      console.warn("Server-PIN-Prüfung nicht erreichbar, nutze lokale Prüfung:", e);
+    }
+
+    // Fallback auf lokale Settings
+    const settings = this.loadSettings();
+    return pin.trim() === (settings.adminPin || "").trim();
+  }
+
   /**
    * Testet die Server-Verbindung
    */
@@ -79,7 +118,7 @@ export class StorageService {
       const res = await fetch(`${testUrl}?_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        return { success: true, message: `Server erreichbar! (Status: ${data.status || 'OK'})` };
+        return { success: true, message: `Server erreichbar! (Status: ${data.status || "OK"})` };
       }
       return { success: false, message: `Server antwortet mit HTTP ${res.status}` };
     } catch (err) {
@@ -88,10 +127,7 @@ export class StorageService {
   }
 
   /**
-   * Lädt alle Veranstaltungen.
-   * 1. Versucht /api/events vom Server
-   * 2. Fallback auf localStorage
-   * 3. Fallback auf statische data/events.json
+   * Lädt alle Veranstaltungen
    */
   async loadEvents() {
     const baseUrl = this.getApiBaseUrl();
@@ -107,7 +143,7 @@ export class StorageService {
         }
       }
     } catch (e) {
-      // Server nicht erreichbar oder lokaler Standalone-Modus
+      // Server nicht erreichbar
     }
 
     // 2. Lokaler Speicher
@@ -193,7 +229,7 @@ export class StorageService {
     }
 
     this.saveLocalEvents(events);
-    this.syncEventsToServer(events);
+    await this.syncEventsToServer(events);
     return events;
   }
 
@@ -207,7 +243,7 @@ export class StorageService {
     }
     events = events.filter((e) => e.id !== eventId && e.slug !== eventId);
     this.saveLocalEvents(events);
-    this.syncEventsToServer(events);
+    await this.syncEventsToServer(events);
     return events;
   }
 
@@ -215,10 +251,6 @@ export class StorageService {
    * Aktualisiert einen einzelnen Wunsch
    */
   async updateWish(eventId, updatedWish) {
-    // Wenn es eine einfache Reservierung/Stornierung ist, versuche zuerst die Server-Reservierungs-API
-    const baseUrl = this.getApiBaseUrl();
-    const apiUrl = baseUrl ? `${baseUrl}/api/reserve` : `/api/reserve`;
-
     if (updatedWish.status === "reserved" && updatedWish.reservedBy) {
       const serverRes = await this.reserveWishOnServer(
         eventId,
@@ -245,7 +277,7 @@ export class StorageService {
     }
 
     this.saveLocalEvents(events);
-    this.syncWishToServer(eventId, updatedWish);
+    await this.syncWishToServer(eventId, updatedWish);
     return events;
   }
 
@@ -265,7 +297,7 @@ export class StorageService {
     event.wishes.unshift(wishItem);
 
     this.saveLocalEvents(events);
-    this.syncWishToServer(eventId, wishItem);
+    await this.syncWishToServer(eventId, wishItem);
     return events;
   }
 
@@ -279,7 +311,7 @@ export class StorageService {
 
     event.wishes = event.wishes.filter((w) => w.id !== wishId);
     this.saveLocalEvents(events);
-    this.deleteWishOnServer(eventId, wishId);
+    await this.deleteWishOnServer(eventId, wishId);
     return events;
   }
 
@@ -298,7 +330,7 @@ export class StorageService {
     }
 
     this.saveLocalEvents(events);
-    this.syncEventsToServer(events);
+    await this.syncEventsToServer(events);
     return events;
   }
 
@@ -307,18 +339,22 @@ export class StorageService {
    */
   async syncEventsToServer(events) {
     const baseUrl = this.getApiBaseUrl();
-    const settings = this.loadSettings();
     const apiUrl = baseUrl ? `${baseUrl}/api/events` : `/api/events`;
+    const adminPin = this.getAdminPin();
 
     try {
-      await fetch(apiUrl, {
+      const res = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Admin-Pin": settings.adminPin || "1234"
+          "X-Admin-Pin": adminPin
         },
         body: JSON.stringify(events)
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.warn("Server Event-Sync Fehlermeldung:", errData.error || res.statusText);
+      }
     } catch (e) {
       console.warn("Konnte Events nicht zum Server übertragen:", e);
     }
@@ -326,18 +362,22 @@ export class StorageService {
 
   async syncWishToServer(eventId, wish) {
     const baseUrl = this.getApiBaseUrl();
-    const settings = this.loadSettings();
     const apiUrl = baseUrl ? `${baseUrl}/api/wishes` : `/api/wishes`;
+    const adminPin = this.getAdminPin();
 
     try {
-      await fetch(apiUrl, {
+      const res = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Admin-Pin": settings.adminPin || "1234"
+          "X-Admin-Pin": adminPin
         },
         body: JSON.stringify({ eventId, wish })
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.warn("Server Wish-Sync Fehler:", errData.error || res.statusText);
+      }
     } catch (e) {
       console.warn("Konnte Wunsch nicht zum Server übertragen:", e);
     }
@@ -345,18 +385,22 @@ export class StorageService {
 
   async deleteWishOnServer(eventId, wishId) {
     const baseUrl = this.getApiBaseUrl();
-    const settings = this.loadSettings();
     const apiUrl = baseUrl ? `${baseUrl}/api/wishes` : `/api/wishes`;
+    const adminPin = this.getAdminPin();
 
     try {
-      await fetch(apiUrl, {
+      const res = await fetch(apiUrl, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          "X-Admin-Pin": settings.adminPin || "1234"
+          "X-Admin-Pin": adminPin
         },
         body: JSON.stringify({ eventId, wishId })
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.warn("Server Delete-Wish Fehler:", errData.error || res.statusText);
+      }
     } catch (e) {
       console.warn("Konnte Wunsch auf Server nicht löschen:", e);
     }
@@ -377,8 +421,29 @@ export class StorageService {
     return defaultSettings;
   }
 
-  saveSettings(settings) {
+  async saveSettings(settings) {
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    if (settings.adminPin) {
+      this.setAdminPin(settings.adminPin);
+    }
+
+    // Sync Settings to Server
+    const baseUrl = this.getApiBaseUrl();
+    const apiUrl = baseUrl ? `${baseUrl}/api/settings` : `/api/settings`;
+    const adminPin = this.getAdminPin();
+
+    try {
+      await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Pin": adminPin
+        },
+        body: JSON.stringify(settings)
+      });
+    } catch (e) {
+      console.warn("Konnte Settings nicht zum Server synchronisieren:", e);
+    }
   }
 
   /**
@@ -390,7 +455,7 @@ export class StorageService {
     const exportObject = {
       version: 2,
       exportedAt: new Date().toISOString(),
-      settings,
+      settings: { ...settings, adminPin: undefined }, // PIN nicht in Backups exportieren
       events
     };
     const blob = new Blob([JSON.stringify(exportObject, null, 2)], { type: "application/json" });
@@ -411,7 +476,7 @@ export class StorageService {
       if (data && Array.isArray(data.events)) {
         this.saveLocalEvents(data.events);
         if (data.settings) {
-          this.saveSettings(data.settings);
+          await this.saveSettings(data.settings);
         }
         await this.syncEventsToServer(data.events);
         return { success: true, count: data.events.length };
@@ -425,10 +490,10 @@ export class StorageService {
   /**
    * Setzt alles auf die Standard-Events zurück
    */
-  resetToDefaults() {
+  async resetToDefaults() {
     this.saveLocalEvents(defaultEvents);
-    this.saveSettings(defaultSettings);
-    this.syncEventsToServer(defaultEvents);
+    await this.saveSettings(defaultSettings);
+    await this.syncEventsToServer(defaultEvents);
     return { events: defaultEvents, settings: defaultSettings };
   }
 }

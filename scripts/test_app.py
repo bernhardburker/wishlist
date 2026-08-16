@@ -194,7 +194,61 @@ def test_server_and_routes():
                     log_fail(f"POST /api/reserve Status: {res.status}")
                     all_ok = False
         except Exception as e:
-            log_fail(f"Fehler beim Testen von POST /api/reserve: {e}")
+            log_fail(f"Fehler bei POST /api/reserve: {e}")
+            all_ok = False
+
+        # Test POST /api/admin/verify
+        try:
+            verify_data = json.dumps({"pin": "1234"}).encode("utf-8")
+            req = urllib.request.Request(
+                f"http://localhost:{PORT}/api/admin/verify",
+                data=verify_data,
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req) as res:
+                if res.status == 200:
+                    resp_json = json.loads(res.read().decode("utf-8"))
+                    if resp_json.get("valid") is True:
+                        log_pass("POST /api/admin/verify: Admin-PIN Prüfung funktioniert")
+                    else:
+                        log_fail("POST /api/admin/verify: PIN Prüfung schlug fehl")
+                        all_ok = False
+        except Exception as e:
+            log_fail(f"Fehler bei POST /api/admin/verify: {e}")
+            all_ok = False
+
+        # Test POST /api/events (Admin Event Speichern / Löschen)
+        try:
+            test_event_data = json.dumps([
+                {
+                    "id": "test-event-1",
+                    "slug": "test-event-1",
+                    "title": "Neues Test Event 🎉",
+                    "subtitle": "Test Beschreibung",
+                    "date": "2026-10-10",
+                    "icon": "🎉",
+                    "isArchived": False,
+                    "wishes": []
+                }
+            ]).encode("utf-8")
+            req = urllib.request.Request(
+                f"http://localhost:{PORT}/api/events",
+                data=test_event_data,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Admin-Pin": "1234"
+                }
+            )
+            with urllib.request.urlopen(req) as res:
+                if res.status == 200:
+                    resp_json = json.loads(res.read().decode("utf-8"))
+                    if resp_json.get("success") and len(resp_json.get("events", [])) == 1:
+                        log_pass("POST /api/events: Admin Event-Verwaltung funktioniert einwandfrei")
+                    else:
+                        log_fail(f"POST /api/events fehlerhafte Antwort: {resp_json}")
+                        all_ok = False
+        except Exception as e:
+            log_fail(f"Fehler bei POST /api/events: {e}")
             all_ok = False
 
     finally:

@@ -2,8 +2,9 @@
 """
 Wunschliste REST-API & Webserver für den Burkerserver
 - Speichert alle Wünsche & Reservierungen atomar in data/events.json
+- Speichert Einstellungen & Admin-PIN in data/settings.json
 - Öffentliche Reservierungs-API für Gäste (ohne Authentifizierung)
-- Admin-API zum Anlegen/Bearbeiten/Löschen (gesichert über Admin-PIN)
+- Admin-API zum Anlegen/Bearbeiten/Löschen von Events & Wünschen (gesichert über Admin-PIN)
 - Volle CORS-Unterstützung für Subdomains & Reverse Proxies
 """
 
@@ -19,11 +20,47 @@ from datetime import datetime
 PORT = int(os.environ.get("PORT", 8088))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(DIRECTORY, "data", "events.json")
-DEFAULT_ADMIN_PIN = os.environ.get("ADMIN_PIN", "1234")
+SETTINGS_FILE = os.path.join(DIRECTORY, "data", "settings.json")
+DEFAULT_ENV_ADMIN_PIN = os.environ.get("ADMIN_PIN", "1234")
+
+def ensure_data_dirs():
+    """Stellt sicher, dass das Datenverzeichnis existiert"""
+    os.makedirs(os.path.join(DIRECTORY, "data"), exist_ok=True)
+
+def atomic_write_json(file_path, data):
+    """Schreibt JSON atomar über eine temporäre Datei (verhindert Datenverlust/Korruption)"""
+    ensure_data_dirs()
+    dir_name = os.path.dirname(file_path)
+    with tempfile.NamedTemporaryFile("w", dir=dir_name, delete=False, encoding="utf-8") as tf:
+        json.dump(data, tf, indent=2, ensure_ascii=False)
+        temp_name = tf.name
+    shutil.move(temp_name, file_path)
+
+def load_settings_from_disk():
+    """Lädt Einstellungen & Admin-PIN aus data/settings.json"""
+    ensure_data_dirs()
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Fehler beim Laden von settings.json: {e}", file=sys.stderr)
+    return {
+        "adminPin": DEFAULT_ENV_ADMIN_PIN,
+        "categories": [
+            "Alle", "Spielzeug", "Bücher", "Kleidung",
+            "Garten & Outdoor", "Elektronik", "Erlebnisse & Gutscheine",
+            "Wohnen & Deko", "Sonstiges"
+        ]
+    }
+
+def save_settings_to_disk(settings):
+    """Speichert Einstellungen & Admin-PIN atomar"""
+    atomic_write_json(SETTINGS_FILE, settings)
 
 def ensure_data_file():
     """Stellt sicher, dass die Datei data/events.json existiert"""
-    os.makedirs(os.path.join(DIRECTORY, "data"), exist_ok=True)
+    ensure_data_dirs()
     if not os.path.exists(DATA_FILE):
         default_data = [
             {
@@ -37,7 +74,7 @@ def ensure_data_file():
                 "wishes": []
             }
         ]
-        atomic_write_json(default_data)
+        atomic_write_json(DATA_FILE, default_data)
 
 def load_events_from_disk():
     """Lädt die aktuellen Events aus der JSON-Datei"""
@@ -48,15 +85,6 @@ def load_events_from_disk():
     except Exception as e:
         print(f"Fehler beim Laden von events.json: {e}", file=sys.stderr)
         return []
-
-def atomic_write_json(data):
-    """Schreibt JSON atomar über eine temporäre Datei (verhindert Datenverlust/Korruption)"""
-    ensure_data_file()
-    dir_name = os.path.dirname(DATA_FILE)
-    with tempfile.NamedTemporaryFile("w", dir=dir_name, delete=False, encoding="utf-8") as tf:
-        json.dump(data, tf, indent=2, ensure_ascii=False)
-        temp_name = tf.name
-    shutil.move(temp_name, DATA_FILE)
 
 
 class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
@@ -101,9 +129,13 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
             return None
 
     def check_admin_auth(self):
-        """Prüft den Admin-PIN Header"""
-        provided_pin = self.headers.get("X-Admin-Pin") or self.headers.get("Authorization", "").replace("Bearer ", "")
-        return provided_pin.strip() == DEFAULT_ADMIN_PIN.strip()
+        """Prüft den Admin-PIN Header gegen gespeicherte Settings / Env"""
+        provided_pin = (self.headers.get("X-Admin-Pin") or self.headers.get("Authorization", "").replace("Bearer ", "")).strip()
+        if not provided_pin:
+            return False
+        current_settings = load_settings_from_disk()
+        valid_pin = (current_settings.get("adminPin") or DEFAULT_ENV_ADMIN_PIN).strip()
+        return provided_pin == valid_pin or provided_pin == DEFAULT_ENV_ADMIN_PIN.strip()
 
     def do_GET(self):
         """API Routen oder statische Dateien ausliefern"""
@@ -120,12 +152,29 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(200, events)
             return
 
-        # 3. Statische Dateien normal ausliefern
+        # 3. Einstellungen abrufen (ohne PIN im Response)
+        if path == "/api/settings":
+            settings = load_settings_from_disk()
+            public_settings = {k: v for k, v in settings.items() if k != "adminPin"}
+            self.send_json(200, public_settings)
+            return
+
+        # 4. Statische Dateien normal ausliefern
         super().do_GET()
 
     def do_POST(self):
-        """API Schreibzugriffe (Reservieren, Wünsche anlegen, Events speichern)"""
+        """API Schreibzugriffe (Reservieren, Wünsche/Events/Settings speichern)"""
         path = self.path.split("?")[0]
+
+        # --- Route: Admin PIN Verifizierung ---
+        if path == "/api/admin/verify":
+            body = self.read_json_body() or {}
+            pin = (body.get("pin") or "").strip()
+            current_settings = load_settings_from_disk()
+            valid_pin = (current_settings.get("adminPin") or DEFAULT_ENV_ADMIN_PIN).strip()
+            is_valid = bool(pin) and (pin == valid_pin or pin == DEFAULT_ENV_ADMIN_PIN.strip())
+            self.send_json(200, {"valid": is_valid})
+            return
 
         # --- Öffentliche Route: Reservierung für Gäste ---
         if path == "/api/reserve":
@@ -177,11 +226,28 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             target_wish["updatedAt"] = datetime.now().isoformat()
-            atomic_write_json(events)
+            atomic_write_json(DATA_FILE, events)
             self.send_json(200, {"success": True, "wish": target_wish, "events": events})
             return
 
-        # --- Admin Route: Gesamte Events speichern / aktualisieren ---
+        # --- Admin Route: Einstellungen & PIN speichern ---
+        if path == "/api/settings":
+            if not self.check_admin_auth():
+                self.send_json(401, {"error": "Nicht autorisiert (Admin-PIN erforderlich)"})
+                return
+
+            body = self.read_json_body()
+            if not isinstance(body, dict):
+                self.send_json(400, {"error": "Ungültiges Einstellungs-Format"})
+                return
+
+            current_settings = load_settings_from_disk()
+            updated_settings = {**current_settings, **body}
+            save_settings_to_disk(updated_settings)
+            self.send_json(200, {"success": True, "settings": updated_settings})
+            return
+
+        # --- Admin Route: Gesamte Events speichern / anlegen / löschen ---
         if path == "/api/events":
             if not self.check_admin_auth():
                 self.send_json(401, {"error": "Nicht autorisiert (Admin-PIN erforderlich)"})
@@ -192,7 +258,7 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(400, {"error": "Erwarte Array von Veranstaltungen"})
                 return
 
-            atomic_write_json(body)
+            atomic_write_json(DATA_FILE, body)
             self.send_json(200, {"success": True, "events": body})
             return
 
@@ -226,7 +292,7 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
                 wish_data.setdefault("updatedAt", datetime.now().isoformat())
                 wishes.insert(0, wish_data)
 
-            atomic_write_json(events)
+            atomic_write_json(DATA_FILE, events)
             self.send_json(200, {"success": True, "events": events})
             return
 
@@ -253,7 +319,7 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             target_event["wishes"] = [w for w in target_event.get("wishes", []) if w.get("id") != body["wishId"]]
-            atomic_write_json(events)
+            atomic_write_json(DATA_FILE, events)
             self.send_json(200, {"success": True, "events": events})
             return
 
