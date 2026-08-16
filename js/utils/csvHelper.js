@@ -153,9 +153,10 @@ export function parseWishesFromCsv(csvText) {
     const rawPrice = (headerMap.price !== -1 && cols[headerMap.price]) ? cols[headerMap.price] : "";
     const category = (headerMap.category !== -1 && cols[headerMap.category]) ? cols[headerMap.category] : "Spielzeug";
     const rawPrio = (headerMap.priority !== -1 && cols[headerMap.priority]) ? cols[headerMap.priority] : "medium";
-    const image = (headerMap.image !== -1 && cols[headerMap.image]) ? cols[headerMap.image] : "";
-    const description = (headerMap.description !== -1 && cols[headerMap.description]) ? cols[headerMap.description] : "";
-    const note = (headerMap.note !== -1 && cols[headerMap.note]) ? cols[headerMap.note] : "";
+    let cleanedImage = image.trim();
+    if (cleanedImage && cleanedImage.includes("image.smythstoys.com") && !cleanedImage.match(/\.(jpg|jpeg|png|webp)($|\?)/i)) {
+      cleanedImage += ".jpg";
+    }
 
     const detected = detectShop(url);
 
@@ -166,7 +167,7 @@ export function parseWishesFromCsv(csvText) {
       price: normalizePrice(rawPrice),
       category: category.trim() || "Sonstiges",
       priority: normalizePriority(rawPrio),
-      image: image.trim(),
+      image: cleanedImage,
       description: description.trim(),
       note: note.trim(),
       shopName: detected.name,

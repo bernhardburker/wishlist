@@ -713,7 +713,14 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
       try {
         if (file.name.endsWith(".json")) {
           const parsed = JSON.parse(content);
-          parsedImportWishes = Array.isArray(parsed) ? parsed : (parsed.wishes || []);
+          const list = Array.isArray(parsed) ? parsed : (parsed.wishes || []);
+          parsedImportWishes = list.map(w => {
+            let img = (w.image || "").trim();
+            if (img && img.includes("image.smythstoys.com") && !img.match(/\.(jpg|jpeg|png|webp)($|\?)/i)) {
+              img += ".jpg";
+            }
+            return { ...w, image: img };
+          });
         } else {
           // CSV Datei
           parsedImportWishes = parseWishesFromCsv(content);

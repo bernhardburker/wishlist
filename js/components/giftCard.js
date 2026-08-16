@@ -18,7 +18,10 @@ export function createGiftCardElement(wish) {
 
   const defaultImagePlaceholder = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300" fill="%23f8fafc"><rect width="400" height="300" fill="%23f1f5f9"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" font-size="48">🎁</text><text x="50%" y="65%" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-family="sans-serif" font-size="14">Wunschfoto</text></svg>`;
 
-  const imageUrl = wish.image || defaultImagePlaceholder;
+  let imageUrl = wish.image || defaultImagePlaceholder;
+  if (imageUrl && imageUrl.includes("image.smythstoys.com") && !imageUrl.match(/\.(jpg|jpeg|png|webp)($|\?)/i)) {
+    imageUrl += ".jpg";
+  }
 
   card.innerHTML = `
     <div class="card-media-wrapper">
