@@ -182,41 +182,38 @@ def test_server_and_routes():
 
         # Test POST /api/reserve with 8-digit PIN
         try:
-            test_event_id = "karin-wunschliste"
-            test_wish_id = "smyths-258441"
-            if os.path.exists(events_file):
-                with open(events_file, "r", encoding="utf-8") as f:
-                    ev_data = json.load(f)
-                    if ev_data and isinstance(ev_data, list) and len(ev_data) > 0:
-                        test_event_id = ev_data[0].get("id") or test_event_id
-                        wishes = ev_data[0].get("wishes", [])
-                        if wishes and len(wishes) > 0:
-                            test_wish_id = wishes[0].get("id") or test_wish_id
-
-            reserve_data = json.dumps({
-                "eventId": test_event_id,
-                "wishId": test_wish_id,
-                "action": "reserve",
-                "name": "Test Gast",
-                "note": "Freue mich",
-                "pin": "87654321"
-            }).encode("utf-8")
-            req = urllib.request.Request(
-                f"http://localhost:{PORT}/api/reserve",
-                data=reserve_data,
-                headers={"Content-Type": "application/json"}
-            )
-            with urllib.request.urlopen(req) as res:
-                if res.status == 200:
-                    resp_json = json.loads(res.read().decode("utf-8"))
-                    if resp_json.get("success"):
-                        log_pass("POST /api/reserve: Reservierungs-API mit 8-stelligem PIN funktioniert einwandfrei")
+            from server import load_events_from_disk
+            current_events = load_events_from_disk()
+            if current_events and current_events[0].get("wishes"):
+                test_event_id = current_events[0]["id"]
+                test_wish_id = current_events[0]["wishes"][0]["id"]
+                reserve_data = json.dumps({
+                    "eventId": test_event_id,
+                    "wishId": test_wish_id,
+                    "action": "reserve",
+                    "name": "Test Gast",
+                    "note": "Freue mich",
+                    "pin": "87654321"
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    f"http://localhost:{PORT}/api/reserve",
+                    data=reserve_data,
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req) as res:
+                    if res.status == 200:
+                        resp_json = json.loads(res.read().decode("utf-8"))
+                        if resp_json.get("success"):
+                            log_pass("POST /api/reserve: Reservierungs-API mit 8-stelligem PIN funktioniert einwandfrei")
+                        else:
+                            log_fail(f"POST /api/reserve antwortete ohne Erfolg: {resp_json}")
+                            all_ok = False
                     else:
-                        log_fail(f"POST /api/reserve antwortete ohne Erfolg: {resp_json}")
+                        log_fail(f"POST /api/reserve Status: {res.status}")
                         all_ok = False
-                else:
-                    log_fail(f"POST /api/reserve Status: {res.status}")
-                    all_ok = False
+            else:
+                log_fail("Keine Events oder Wünsche zum Testen von POST /api/reserve vorhanden")
+                all_ok = False
         except Exception as e:
             log_fail(f"Fehler bei POST /api/reserve: {e}")
             all_ok = False
