@@ -462,12 +462,50 @@ export class StorageService {
     return defaultSettings;
   }
 
-  async saveSettings(settings) {
-    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
-    if (settings.adminPin) {
-      this.setAdminPin(settings.adminPin);
+  /**
+   * Ändert den Admin-PIN sicher auf dem Server und lokal
+   */
+  async changeAdminPin(oldPin, newPin) {
+    const cleanOld = (oldPin || this.getAdminPin()).trim();
+    const cleanNew = (newPin || "").trim();
+
+    if (!cleanNew || cleanNew.length < 4) {
+      throw new Error("Die neue PIN muss mindestens 4 Zeichen lang sein.");
     }
 
+    const baseUrl = this.getApiBaseUrl();
+    const apiUrl = baseUrl ? `${baseUrl}/api/admin/change-pin` : `/api/admin/change-pin`;
+
+    try {
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Pin": cleanOld
+        },
+        body: JSON.stringify({ oldPin: cleanOld, newPin: cleanNew })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
+
+      // Erst nach erfolgreicher Server-Bestätigung lokal übernehmen!
+      this.setAdminPin(cleanNew);
+      return { success: true };
+    } catch (e) {
+      if (e.message && (e.message.includes("Failed to fetch") || e.message.includes("NetworkError"))) {
+        // Offline-Fallback
+        this.setAdminPin(cleanNew);
+        return { success: true, offline: true };
+      }
+      throw e;
+    }
+  }
+
+  async saveSettings(settings) {
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
     const baseUrl = this.getApiBaseUrl();
     const apiUrl = baseUrl ? `${baseUrl}/api/settings` : `/api/settings`;
     const adminPin = this.getAdminPin();

@@ -359,9 +359,16 @@ class StateStore {
     this.notify();
   }
 
-  updateSettings(newSettings) {
+  async changeAdminPin(oldPin, newPin) {
+    const res = await storage.changeAdminPin(oldPin, newPin);
+    this.settings = storage.loadSettings();
+    this.notify();
+    return res;
+  }
+
+  async updateSettings(newSettings) {
     this.settings = { ...this.settings, ...newSettings };
-    storage.saveSettings(this.settings);
+    await storage.saveSettings(this.settings);
     this.notify();
   }
 }

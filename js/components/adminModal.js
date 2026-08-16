@@ -419,25 +419,36 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
         <div id="tab-settings" class="tab-content">
           <div class="backup-section">
             <h4>🔑 Admin-Sicherheit</h4>
+            <p class="form-hint">Ändere hier deine Admin-PIN. Sobald gespeichert, ist die alte PIN sofort ungültig.</p>
             <form id="form-admin-pin-settings" style="margin-bottom: 1.5rem;">
               <div class="form-group">
-                <label for="setting-admin-pin" class="form-label">Admin-PIN ändern:</label>
+                <label for="setting-current-pin" class="form-label required-label">Bisherige Admin-PIN:</label>
+                <input
+                  type="password"
+                  id="setting-current-pin"
+                  class="form-input"
+                  placeholder="Aktuelle PIN zur Bestätigung"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="setting-new-pin" class="form-label required-label">Neue Admin-PIN:</label>
                 <div class="input-with-action">
                   <input
                     type="password"
-                    id="setting-admin-pin"
+                    id="setting-new-pin"
                     class="form-input"
                     placeholder="Neue 4-stellige PIN"
-                    value="${escapeHtml(settings.adminPin || '')}"
+                    minlength="4"
                     required
                   />
                   <button type="button" id="btn-toggle-setting-pin" class="btn-input-action" title="PIN anzeigen/verbergen">
                     👁️
                   </button>
                 </div>
-                <span class="form-hint">Mit dieser PIN entsperrst du den Verwaltungsbereich.</span>
+                <span class="form-hint">Mit der neuen PIN entsperrst du diesen Verwaltungsbereich.</span>
               </div>
-              <button type="submit" class="btn btn-sm btn-secondary">PIN speichern</button>
+              <button type="submit" class="btn btn-sm btn-primary">Neue PIN speichern</button>
             </form>
 
             <hr class="divider" />
@@ -764,27 +775,46 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
   // ==========================================
   const formPin = modalOverlay.querySelector("#form-admin-pin-settings");
   const togglePinBtn = modalOverlay.querySelector("#btn-toggle-setting-pin");
-  const pinSettingInput = modalOverlay.querySelector("#setting-admin-pin");
+  const currentPinInput = modalOverlay.querySelector("#setting-current-pin");
+  const newPinInput = modalOverlay.querySelector("#setting-new-pin");
 
-  if (togglePinBtn && pinSettingInput) {
+  if (togglePinBtn && newPinInput) {
     togglePinBtn.addEventListener("click", () => {
-      if (pinSettingInput.type === "password") {
-        pinSettingInput.type = "text";
+      if (newPinInput.type === "password") {
+        newPinInput.type = "text";
         togglePinBtn.textContent = "🙈";
       } else {
-        pinSettingInput.type = "password";
+        newPinInput.type = "password";
         togglePinBtn.textContent = "👁️";
       }
     });
   }
 
-  if (formPin && pinSettingInput) {
+  if (formPin && newPinInput) {
     formPin.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const pin = pinSettingInput.value.trim();
-      if (pin) {
-        await state.updateSettings({ adminPin: pin });
-        toast.success("Admin-PIN erfolgreich geändert und gespeichert!");
+      const currentPin = (currentPinInput ? currentPinInput.value : "").trim() || storage.getAdminPin();
+      const newPin = newPinInput.value.trim();
+
+      if (!newPin || newPin.length < 4) {
+        toast.error("Die neue PIN muss mindestens 4 Zeichen lang sein.");
+        return;
+      }
+
+      const submitBtn = formPin.querySelector("button[type='submit']");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Speichere...";
+
+      try {
+        await state.changeAdminPin(currentPin, newPin);
+        toast.success("Admin-PIN erfolgreich geändert! Die alte PIN ist ab sofort ungültig.");
+        if (currentPinInput) currentPinInput.value = "";
+        if (newPinInput) newPinInput.value = "";
+      } catch (err) {
+        toast.error(`Fehler beim Ändern der PIN: ${err.message}`);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Neue PIN speichern";
       }
     });
   }

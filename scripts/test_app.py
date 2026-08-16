@@ -259,11 +259,74 @@ def test_server_and_routes():
             log_fail(f"Fehler bei POST /api/events: {e}")
             all_ok = False
 
+        # Test POST /api/admin/change-pin
+        try:
+            change_data = json.dumps({"oldPin": "1234", "newPin": "5678"}).encode("utf-8")
+            req = urllib.request.Request(
+                f"http://localhost:{PORT}/api/admin/change-pin",
+                data=change_data,
+                headers={"Content-Type": "application/json", "X-Admin-Pin": "1234"}
+            )
+            with urllib.request.urlopen(req) as res:
+                if res.status == 200:
+                    resp_json = json.loads(res.read().decode("utf-8"))
+                    if resp_json.get("success"):
+                        log_pass("POST /api/admin/change-pin: PIN erfolgreich auf 5678 geändert")
+                    else:
+                        log_fail(f"POST /api/admin/change-pin: Fehlerhafte Antwort: {resp_json}")
+                        all_ok = False
+
+            # Verify that old PIN 1234 is now REJECTED
+            verify_old = json.dumps({"pin": "1234"}).encode("utf-8")
+            req_old = urllib.request.Request(
+                f"http://localhost:{PORT}/api/admin/verify",
+                data=verify_old,
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req_old) as res:
+                resp_json = json.loads(res.read().decode("utf-8"))
+                if resp_json.get("valid") is False:
+                    log_pass("Sicherheit: Alte PIN 1234 wird erfolgreich abgewiesen")
+                else:
+                    log_fail("Sicherheitsfehler: Alte PIN 1234 wird immer noch akzeptiert!")
+                    all_ok = False
+
+            # Verify that new PIN 5678 is ACCEPTED
+            verify_new = json.dumps({"pin": "5678"}).encode("utf-8")
+            req_new = urllib.request.Request(
+                f"http://localhost:{PORT}/api/admin/verify",
+                data=verify_new,
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req_new) as res:
+                resp_json = json.loads(res.read().decode("utf-8"))
+                if resp_json.get("valid") is True:
+                    log_pass("Sicherheit: Neue PIN 5678 wird erfolgreich akzeptiert")
+                else:
+                    log_fail("Fehler: Neue PIN 5678 wird nicht akzeptiert!")
+                    all_ok = False
+
+            # Change back to 1234 for test cleanup
+            change_back = json.dumps({"oldPin": "5678", "newPin": "1234"}).encode("utf-8")
+            req_back = urllib.request.Request(
+                f"http://localhost:{PORT}/api/admin/change-pin",
+                data=change_back,
+                headers={"Content-Type": "application/json", "X-Admin-Pin": "5678"}
+            )
+            with urllib.request.urlopen(req_back) as res:
+                pass
+        except Exception as e:
+            log_fail(f"Fehler bei PIN Change Test: {e}")
+            all_ok = False
+
     finally:
         server.stop()
         if events_backup is not None:
             with open(events_file, "w", encoding="utf-8") as f:
                 f.write(events_backup)
+        settings_file = os.path.join(PROJECT_ROOT, "data", "settings.json")
+        if os.path.exists(settings_file):
+            os.remove(settings_file)
         os.chdir(cwd)
 
     return all_ok

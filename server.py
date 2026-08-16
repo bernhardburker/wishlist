@@ -42,7 +42,9 @@ def load_settings_from_disk():
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                if isinstance(data, dict):
+                    return data
         except Exception as e:
             print(f"Fehler beim Laden von settings.json: {e}", file=sys.stderr)
     return {
@@ -53,6 +55,13 @@ def load_settings_from_disk():
             "Wohnen & Deko", "Sonstiges"
         ]
     }
+
+def get_current_admin_pin():
+    """Gibt den aktuell gültigen Admin-PIN zurück"""
+    settings = load_settings_from_disk()
+    if settings and settings.get("adminPin"):
+        return str(settings.get("adminPin")).strip()
+    return DEFAULT_ENV_ADMIN_PIN.strip()
 
 def save_settings_to_disk(settings):
     """Speichert Einstellungen & Admin-PIN atomar"""
@@ -129,13 +138,12 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
             return None
 
     def check_admin_auth(self):
-        """Prüft den Admin-PIN Header gegen gespeicherte Settings / Env"""
+        """Prüft den Admin-PIN Header exakt gegen den aktuell gültigen PIN"""
         provided_pin = (self.headers.get("X-Admin-Pin") or self.headers.get("Authorization", "").replace("Bearer ", "")).strip()
         if not provided_pin:
             return False
-        current_settings = load_settings_from_disk()
-        valid_pin = (current_settings.get("adminPin") or DEFAULT_ENV_ADMIN_PIN).strip()
-        return provided_pin == valid_pin or provided_pin == DEFAULT_ENV_ADMIN_PIN.strip()
+        current_pin = get_current_admin_pin()
+        return provided_pin == current_pin
 
     def do_GET(self):
         """API Routen oder statische Dateien ausliefern"""
@@ -170,10 +178,30 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
         if path == "/api/admin/verify":
             body = self.read_json_body() or {}
             pin = (body.get("pin") or "").strip()
-            current_settings = load_settings_from_disk()
-            valid_pin = (current_settings.get("adminPin") or DEFAULT_ENV_ADMIN_PIN).strip()
-            is_valid = bool(pin) and (pin == valid_pin or pin == DEFAULT_ENV_ADMIN_PIN.strip())
+            current_pin = get_current_admin_pin()
+            is_valid = bool(pin) and (pin == current_pin)
             self.send_json(200, {"valid": is_valid})
+            return
+
+        # --- Route: Admin PIN sicher ändern ---
+        if path == "/api/admin/change-pin":
+            body = self.read_json_body() or {}
+            old_pin = (body.get("oldPin") or self.headers.get("X-Admin-Pin") or "").strip()
+            new_pin = (body.get("newPin") or "").strip()
+
+            current_pin = get_current_admin_pin()
+            if not old_pin or old_pin != current_pin:
+                self.send_json(401, {"error": "Bisherige Admin-PIN ist nicht korrekt."})
+                return
+
+            if not new_pin or len(new_pin) < 4:
+                self.send_json(400, {"error": "Die neue PIN muss mindestens 4 Zeichen lang sein."})
+                return
+
+            settings = load_settings_from_disk()
+            settings["adminPin"] = new_pin
+            save_settings_to_disk(settings)
+            self.send_json(200, {"success": True, "message": "Admin-PIN erfolgreich geändert."})
             return
 
         # --- Öffentliche Route: Reservierung für Gäste ---
@@ -230,7 +258,7 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(200, {"success": True, "wish": target_wish, "events": events})
             return
 
-        # --- Admin Route: Einstellungen & PIN speichern ---
+        # --- Admin Route: Einstellungen speichern ---
         if path == "/api/settings":
             if not self.check_admin_auth():
                 self.send_json(401, {"error": "Nicht autorisiert (Admin-PIN erforderlich)"})
@@ -244,7 +272,7 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
             current_settings = load_settings_from_disk()
             updated_settings = {**current_settings, **body}
             save_settings_to_disk(updated_settings)
-            self.send_json(200, {"success": True, "settings": updated_settings})
+            self.send_json(200, {"success": True, "settings": {k: v for k, v in updated_settings.items() if k != "adminPin"}})
             return
 
         # --- Admin Route: Gesamte Events speichern / anlegen / löschen ---
