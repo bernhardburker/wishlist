@@ -12,25 +12,15 @@ on:
 jobs:
   test-and-validate:
     name: 🧪 Syntax-, Modul- & Playwright E2E-Prüfung
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: 📥 Repository auschecken
         uses: actions/checkout@v4
 
-      - name: 🐍 Python einrichten
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
       - name: 🚀 CI-Testsuite ausführen (Dateistruktur, ES-Module, API)
         run: |
           python3 scripts/test_app.py
-
-      - name: 🎭 Playwright & Browser installieren
-        run: |
-          pip install playwright
-          playwright install --with-deps chromium
 
       - name: 🌐 Playwright E2E Browser-Tests ausführen
         run: |
