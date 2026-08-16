@@ -42,25 +42,40 @@ export function renderGiftGrid(container) {
         });
       }
     } else {
-      container.innerHTML = `
-        <div class="empty-state-card">
-          <div class="empty-icon">🎁</div>
-          <h3>Die Wunschliste ist noch leer</h3>
-          <p>Trage die ersten Wünsche ein, um sie mit Freunden und Familie zu teilen!</p>
-          <button id="btn-empty-add" class="btn btn-primary">
-            <span>+ Ersten Wunsch anlegen</span>
-          </button>
-        </div>
-      `;
-      const btnAdd = container.querySelector("#btn-empty-add");
-      if (btnAdd) {
-        btnAdd.addEventListener("click", () => {
-          if (state.isAdmin) {
+      if (state.isAdmin) {
+        container.innerHTML = `
+          <div class="empty-state-card">
+            <div class="empty-icon">🎁</div>
+            <h3>Die Wunschliste ist noch leer</h3>
+            <p>Trage die ersten Wünsche ein, um sie mit Freunden und Familie zu teilen!</p>
+            <button id="btn-empty-add" class="btn btn-primary">
+              <span>+ Ersten Wunsch anlegen</span>
+            </button>
+          </div>
+        `;
+        const btnAdd = container.querySelector("#btn-empty-add");
+        if (btnAdd) {
+          btnAdd.addEventListener("click", () => {
             state.openModal("addWish");
-          } else {
+          });
+        }
+      } else {
+        container.innerHTML = `
+          <div class="empty-state-card">
+            <div class="empty-icon">🎁</div>
+            <h3>Die Wunschliste ist noch leer</h3>
+            <p>Hier wurden noch keine Geschenkideen hinterlegt. Schau bald wieder vorbei!</p>
+            <button id="btn-empty-admin-login" class="btn btn-ghost btn-sm" style="margin-top: 0.75rem;">
+              <span>🔐 Listen-Verwalter? Hier anmelden</span>
+            </button>
+          </div>
+        `;
+        const btnLogin = container.querySelector("#btn-empty-admin-login");
+        if (btnLogin) {
+          btnLogin.addEventListener("click", () => {
             state.openModal("admin");
-          }
-        });
+          });
+        }
       }
     }
     return;

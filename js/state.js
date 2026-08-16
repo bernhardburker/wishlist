@@ -229,6 +229,10 @@ class StateStore {
 
   // --- Veranstaltungen manipulieren ---
   async saveEvent(eventData) {
+    if (!this.isAdmin) {
+      console.warn("Veranstaltungen verwalten ist nur im Admin-Bereich erlaubt.");
+      return null;
+    }
     const slug = eventData.slug || eventData.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const payload = {
       id: eventData.id || generateId("event"),
@@ -249,6 +253,10 @@ class StateStore {
   }
 
   async deleteEvent(eventId) {
+    if (!this.isAdmin) {
+      console.warn("Veranstaltungen löschen ist nur im Admin-Bereich erlaubt.");
+      return;
+    }
     this.events = await storage.deleteEvent(eventId);
     if (this.activeEventId === eventId) {
       this.activeEventId = this.events[0] ? this.events[0].id : "";
@@ -309,6 +317,10 @@ class StateStore {
   }
 
   async saveWish(wishData, targetEventId = null) {
+    if (!this.isAdmin) {
+      console.warn("Wünsche anlegen oder bearbeiten ist nur im Admin-Bereich erlaubt.");
+      return;
+    }
     const eventId = targetEventId || this.activeEventId;
     if (wishData.id) {
       this.events = await storage.updateWish(eventId, wishData);
@@ -319,12 +331,20 @@ class StateStore {
   }
 
   async deleteWish(wishId, targetEventId = null) {
+    if (!this.isAdmin) {
+      console.warn("Wünsche löschen ist nur im Admin-Bereich erlaubt.");
+      return;
+    }
     const eventId = targetEventId || this.activeEventId;
     this.events = await storage.deleteWish(eventId, wishId);
     this.notify();
   }
 
   async importWishes(wishes, mode = "append", targetEventId = null) {
+    if (!this.isAdmin) {
+      console.warn("Wünsche importieren ist nur im Admin-Bereich erlaubt.");
+      return;
+    }
     const eventId = targetEventId || this.activeEventId;
     this.events = await storage.importWishesToEvent(eventId, wishes, mode);
     this.notify();

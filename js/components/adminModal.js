@@ -26,7 +26,7 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
   };
 
   // --- 1. PIN EINGABE (Falls noch nicht eingeloggt) ---
-  if (!isAdmin && modalType !== "addWish" && modalType !== "editWish") {
+  if (!isAdmin) {
     modalOverlay.innerHTML = `
       <div class="modal-card modal-admin-auth" role="dialog">
         <div class="modal-header">
@@ -35,7 +35,7 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
         </div>
         <div class="modal-body">
           <p class="modal-intro">
-            Gib deinen Admin-PIN ein, um Veranstaltungen und Wünsche zu verwalten oder Dateien zu importieren.
+            Gib deinen Admin-PIN ein, um Veranstaltungen und Wünsche zu verwalten oder neue Wünsche anzulegen.
           </p>
           <form id="form-admin-login">
             <div class="form-group">
@@ -73,7 +73,7 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
       const pin = loginForm.querySelector("#admin-pin-input").value.trim();
       if (state.loginAdmin(pin)) {
         toast.success("Admin-Modus erfolgreich aktiviert!");
-        state.openModal("admin");
+        state.openModal(modalType, editingWish);
       } else {
         toast.error("Falscher PIN! Bitte versuche es erneut.");
       }
