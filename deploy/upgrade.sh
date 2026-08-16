@@ -79,11 +79,14 @@ fi
 
 # Fallback: Falls systemd D-Bus in der Runner-Umgebung nicht erreichbar ist, direkter Daemon-Start via setsid
 if [ "$SERVICE_STARTED" = false ]; then
-    echo "ℹ️ Systemd D-Bus nicht direkt ansprechbar. Starte Python-Server als Hintergrunddienst..."
-    pkill -f "$TARGET_DIR/server.py" 2>/dev/null || true
-    pkill -f "python3.*server.py" 2>/dev/null || true
-    sleep 1
+    echo "ℹ️ Systemd D-Bus nicht direkt ansprechbar. Beende evtl. laufende Altprozesse..."
+    fuser -k -9 "${PORT}/tcp" 2>/dev/null || true
+    lsof -ti:"${PORT}" 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+    pkill -9 -f "$TARGET_DIR/server.py" 2>/dev/null || true
+    pkill -9 -f "python3.*server.py" 2>/dev/null || true
+    sleep 2
 
+    echo "🚀 Starte Python-Server als Daemon auf Port $PORT..."
     cd "$TARGET_DIR"
     if command -v setsid >/dev/null 2>&1; then
         setsid "$PYTHON_BIN" -u "$TARGET_DIR/server.py" >> "$TARGET_DIR/server.log" 2>&1 &

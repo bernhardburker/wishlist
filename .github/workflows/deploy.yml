@@ -34,8 +34,12 @@ jobs:
 
       - name: 📦 Deployment & Service Upgrade
         run: |
+          echo "=== Deploy Runner Environment ==="
+          id
+          pwd
+          ls -ld /mnt/data/work/wunschliste || true
           chmod +x deploy/upgrade.sh
-          ./deploy/upgrade.sh /mnt/data/work/wunschliste
+          bash -x ./deploy/upgrade.sh /mnt/data/work/wunschliste
 
       - name: 🩺 Smoke Test & Health Check
         run: |
