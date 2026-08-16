@@ -4,10 +4,11 @@
 
 import { state } from "../state.js";
 import { formatCurrency, escapeHtml, timeAgo, DEFAULT_IMAGE_PLACEHOLDER } from "../utils/helpers.js";
-import { detectShop } from "../utils/shopHelper.js";
+import { detectShop, getWishShops } from "../utils/shopHelper.js";
 
 export function createGiftCardElement(wish) {
-  const shopInfo = detectShop(wish.url);
+  const shops = getWishShops(wish);
+  const primaryShop = shops[0] || detectShop(wish.url);
   const isAvailable = wish.status === "available";
   const isReserved = wish.status === "reserved";
   const isBought = wish.status === "bought";
@@ -19,6 +20,17 @@ export function createGiftCardElement(wish) {
   let imageUrl = (wish.image || "").trim() || DEFAULT_IMAGE_PLACEHOLDER;
   if (imageUrl && imageUrl.includes("image.smythstoys.com") && !imageUrl.match(/\.(jpg|jpeg|png|webp)($|\?)/i)) {
     imageUrl += ".jpg";
+  }
+
+  // Notiz bereinigen (entfernt ggf. rohe URLs aus dem Notiztext, da sie als Buttons gerendert werden)
+  let displayNote = (wish.note || "").trim();
+  if (displayNote.includes("http")) {
+    displayNote = displayNote
+      .replace(/\|?\s*Auch bei [^:]+:\s*https?:\/\/[^\s|]+/gi, "")
+      .replace(/https?:\/\/[^\s|]+/gi, "")
+      .replace(/\|\s*\|/g, "|")
+      .trim()
+      .replace(/^\|\s*|\s*\|$/g, "");
   }
 
   card.innerHTML = `
@@ -36,10 +48,17 @@ export function createGiftCardElement(wish) {
           <span class="badge badge-priority" title="Großer Lieblingswunsch">⭐ Lieblingswunsch</span>
         ` : ""}
 
-        <span class="badge badge-shop ${shopInfo.badgeClass}" title="Erhältlich bei ${escapeHtml(wish.shopName || shopInfo.name)}">
-          <span class="shop-icon">${shopInfo.icon}</span>
-          <span class="shop-name">${escapeHtml(wish.shopName || shopInfo.name)}</span>
-        </span>
+        ${shops.length > 0 ? shops.map(s => `
+          <span class="badge badge-shop ${s.badgeClass}" title="Erhältlich bei ${escapeHtml(s.name)}">
+            <span class="shop-icon">${s.icon}</span>
+            <span class="shop-name">${escapeHtml(s.name)}</span>
+          </span>
+        `).join("") : `
+          <span class="badge badge-shop ${primaryShop.badgeClass}" title="Erhältlich bei ${escapeHtml(wish.shopName || primaryShop.name)}">
+            <span class="shop-icon">${primaryShop.icon}</span>
+            <span class="shop-name">${escapeHtml(wish.shopName || primaryShop.name)}</span>
+          </span>
+        `}
       </div>
 
       ${isReserved ? `
@@ -62,8 +81,8 @@ export function createGiftCardElement(wish) {
       </div>
 
       <h3 class="card-title">
-        ${wish.url ? `
-          <a href="${escapeHtml(wish.url)}" target="_blank" rel="noopener noreferrer" class="card-title-link" title="Im Shop ansehen: ${escapeHtml(wish.title)}">
+        ${(shops[0]?.url || wish.url) ? `
+          <a href="${escapeHtml(shops[0]?.url || wish.url)}" target="_blank" rel="noopener noreferrer" class="card-title-link" title="Im Shop ansehen: ${escapeHtml(wish.title)}">
             ${escapeHtml(wish.title)}
           </a>
         ` : `
@@ -75,10 +94,10 @@ export function createGiftCardElement(wish) {
         <p class="card-description">${escapeHtml(wish.description)}</p>
       ` : ""}
 
-      ${wish.note ? `
+      ${displayNote ? `
         <div class="card-note-box">
           <span class="note-icon">💡</span>
-          <span class="note-text">${escapeHtml(wish.note)}</span>
+          <span class="note-text">${escapeHtml(displayNote)}</span>
         </div>
       ` : ""}
 
@@ -112,37 +131,56 @@ export function createGiftCardElement(wish) {
         ` : ""}
       </div>
 
-      <!-- Action Buttons -->
+      <!-- Action & Shop Buttons -->
       <div class="card-actions">
-        ${isAvailable ? `
-          <button class="btn btn-primary btn-reserve" data-id="${wish.id}">
-            <span>🎁 Ich schenke das</span>
-          </button>
-        ` : isBought ? `
-          <button class="btn btn-secondary btn-cancel-reserve" data-id="${wish.id}">
-            <span>↩ Reservierung aufheben</span>
-          </button>
-        ` : `
-          <button class="btn btn-primary btn-mark-bought" data-id="${wish.id}">
-            <span>🎁 Als gekauft markieren</span>
-          </button>
-          <button class="btn btn-secondary btn-cancel-reserve" data-id="${wish.id}">
-            <span>↩ Aufheben</span>
-          </button>
-        `}
+        <div class="card-primary-action">
+          ${isAvailable ? `
+            <button class="btn btn-primary btn-reserve" data-id="${wish.id}">
+              <span>🎁 Ich schenke das</span>
+            </button>
+          ` : isBought ? `
+            <button class="btn btn-secondary btn-cancel-reserve" data-id="${wish.id}">
+              <span>↩ Reservierung aufheben</span>
+            </button>
+          ` : `
+            <button class="btn btn-primary btn-mark-bought" data-id="${wish.id}">
+              <span>🎁 Als gekauft markieren</span>
+            </button>
+            <button class="btn btn-secondary btn-cancel-reserve" data-id="${wish.id}">
+              <span>↩ Aufheben</span>
+            </button>
+          `}
+        </div>
 
-        ${wish.url ? `
-          <a
-            href="${escapeHtml(wish.url)}"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn btn-outline btn-shop"
-            title="Direkt zum Shop weiterleiten"
-          >
-            <span>Shop ↗</span>
-          </a>
+        ${shops.length > 0 ? `
+          <div class="card-shop-links">
+            ${shops.map(s => `
+              <a
+                href="${escapeHtml(s.url)}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn btn-outline btn-shop ${s.badgeClass}"
+                title="Bei ${escapeHtml(s.name)} ansehen"
+              >
+                <span>${s.icon} ${escapeHtml(s.name)}${s.price && shops.length > 1 ? ` (${formatCurrency(s.price)})` : ''} ↗</span>
+              </a>
+            `).join("")}
+          </div>
+        ` : wish.url ? `
+          <div class="card-shop-links">
+            <a
+              href="${escapeHtml(wish.url)}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn-outline btn-shop"
+              title="Direkt zum Shop weiterleiten"
+            >
+              <span>Shop ↗</span>
+            </a>
+          </div>
         ` : ""}
       </div>
+
 
       <!-- Admin Toolbar (nur sichtbar wenn Admin aktiv) -->
       ${state.isAdmin ? `

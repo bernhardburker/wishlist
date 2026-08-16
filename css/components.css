@@ -727,14 +727,59 @@
 }
 
 .card-actions {
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
 }
 
-.card-actions .btn {
+.card-primary-action {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.card-primary-action .btn {
   width: 100%;
+}
+
+.card-shop-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.card-shop-links .btn-shop {
+  flex: 1 1 auto;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  text-decoration: none;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-alt);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+}
+
+.card-shop-links .btn-shop:hover {
+  background-color: var(--bg-surface);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.card-shop-links .btn-shop.shop-amazon:hover {
+  border-color: #FF9900;
+  color: #D97706;
+}
+
+.card-shop-links .btn-shop.shop-smyths:hover {
+  border-color: #E2001A;
+  color: #E2001A;
 }
 
 .card-admin-bar {

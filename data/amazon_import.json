@@ -3,7 +3,7 @@
     "id": "smyths-258441",
     "title": "PAW Patrol: Der Dino-Film Set Rocky mit Dino-Rettungs-LKW",
     "url": "https://www.smythstoys.com/at/de-at/spielzeug/vorschule/paw-patrol/paw-patrol-fahrzeuge-und-figuren/paw-patrol-der-dino-film-set-rocky-mit-dino-rettungs-lkw/p/258441",
-    "price": 19.99,
+    "price": 19.97,
     "category": "Spielzeug",
     "priority": "medium",
     "image": "https://image.smythstoys.com/original/800/desktop/258441.jpg",
@@ -12,14 +12,28 @@
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
-    "note": "Art.-Nr. 258441 | Auch bei Amazon (-0.02 €): https://www.amazon.de/dp/B0FR9HR1PB/",
-    "reservePin": ""
+    "note": "Art.-Nr. 258441",
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/vorschule/paw-patrol/paw-patrol-fahrzeuge-und-figuren/paw-patrol-der-dino-film-set-rocky-mit-dino-rettungs-lkw/p/258441",
+        "price": 19.99,
+        "icon": "🧸"
+      },
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B0FR9HR1PB/?coliid=IDZIFXRQ3UOBN&colid=C3X3IZXP68SF",
+        "price": 19.97,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "smyths-258452",
     "title": "PAW Patrol: Der Dino-Film Set Chase mit Dino-Rettungs-Cruiser",
     "url": "https://www.smythstoys.com/at/de-at/spielzeug/vorschule/paw-patrol/paw-patrol-fahrzeuge-und-figuren/paw-patrol-der-dino-film-set-chase-mit-dino-rettungs-cruiser/p/258452",
-    "price": 19.99,
+    "price": 19.97,
     "category": "Spielzeug",
     "priority": "medium",
     "image": "https://image.smythstoys.com/original/800/desktop/258452.jpg",
@@ -28,8 +42,22 @@
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
-    "note": "Art.-Nr. 258452 | Auch bei Amazon (-0.02 €): https://www.amazon.de/dp/B0FR9B3JSF/",
-    "reservePin": ""
+    "note": "Art.-Nr. 258452",
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/vorschule/paw-patrol/paw-patrol-fahrzeuge-und-figuren/paw-patrol-der-dino-film-set-chase-mit-dino-rettungs-cruiser/p/258452",
+        "price": 19.99,
+        "icon": "🧸"
+      },
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B0FR9B3JSF/?coliid=I1AOP3BOB71S8U&colid=C3X3IZXP68SF",
+        "price": 19.97,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "smyths-229513",
@@ -45,13 +73,21 @@
     "reservedBy": "",
     "reservedAt": null,
     "note": "Art.-Nr. 229513",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/outdoor/kinderroller-und-e-scooter/weitere-scooter/aero-scooter-neo-chrome-kick-mit-led-raedern/p/229513",
+        "price": 69.99,
+        "icon": "🧸"
+      }
+    ]
   },
   {
     "id": "smyths-258453",
     "title": "PAW Patrol: Der Dino-Film Set Zuma mit Dino-Rettungs-Hovercraft",
     "url": "https://www.smythstoys.com/at/de-at/spielzeug/vorschule/paw-patrol/paw-patrol-fahrzeuge-und-figuren/paw-patrol-der-dino-film-set-zuma-mit-dino-rettungs-hovercraft/p/258453",
-    "price": 19.99,
+    "price": 19.97,
     "category": "Spielzeug",
     "priority": "medium",
     "image": "https://image.smythstoys.com/original/800/desktop/258453.jpg",
@@ -61,7 +97,21 @@
     "reservedBy": "",
     "reservedAt": null,
     "note": "Art.-Nr. 258453",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/vorschule/paw-patrol/paw-patrol-fahrzeuge-und-figuren/paw-patrol-der-dino-film-set-zuma-mit-dino-rettungs-hovercraft/p/258453",
+        "price": 19.99,
+        "icon": "🧸"
+      },
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B0FR9JWR34/?coliid=I3IJEMEYETWPBQ&colid=C3X3IZXP68SF",
+        "price": 19.97,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "smyths-245210",
@@ -77,7 +127,15 @@
     "reservedBy": "",
     "reservedAt": null,
     "note": "Art.-Nr. 245210",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/action-spielzeug/pokemon/pokemon-figuren-und-sets/pokemon-select-figur-mega-glurak-x-15-cm/p/245210",
+        "price": 24.99,
+        "icon": "🧸"
+      }
+    ]
   },
   {
     "id": "smyths-235472004",
@@ -92,8 +150,22 @@
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
-    "note": "Art.-Nr. 235472004 | Auch bei Amazon (gleicher Preis): https://www.amazon.de/dp/B0DS6DRC79/",
-    "reservePin": ""
+    "note": "Art.-Nr. 235472004",
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/plueschtiere-und-kuscheltiere/kuscheltiere/pokemon-plueschtiere/pokemon-kuscheltier-meisterball-12-5-cm/p/235472004",
+        "price": 7.99,
+        "icon": "🧸"
+      },
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B0DS6DRC79/?coliid=I1MD460LI7RU5W&colid=C3X3IZXP68SF",
+        "price": 7.99,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "smyths-178285092",
@@ -109,7 +181,15 @@
     "reservedBy": "",
     "reservedAt": null,
     "note": "Art.-Nr. 178285092",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/action-spielzeug/pokemon/pokemon-figuren-und-sets/pokemon-clip-n-go-figur-bisasam-und-pokeball/p/178285092",
+        "price": 13.99,
+        "icon": "🧸"
+      }
+    ]
   },
   {
     "id": "smyths-178285087",
@@ -125,7 +205,15 @@
     "reservedBy": "",
     "reservedAt": null,
     "note": "Art.-Nr. 178285087",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/action-spielzeug/pokemon/pokemon-figuren-und-sets/pokemon-clip-n-go-figur-schiggy-und-pokeball/p/178285087",
+        "price": 13.99,
+        "icon": "🧸"
+      }
+    ]
   },
   {
     "id": "smyths-166003",
@@ -141,7 +229,21 @@
     "reservedBy": "",
     "reservedAt": null,
     "note": "Art.-Nr. 166003",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/outdoor/fussball-und-tore/hover-ball-indoor-fussball-mit-led-licht/p/166003",
+        "price": 4.99,
+        "icon": "🧸"
+      },
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B0FSZZXX9N/?coliid=I3RMVUJ1XXTT65&colid=C3X3IZXP68SF",
+        "price": 18.99,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "smyths-177128",
@@ -157,7 +259,15 @@
     "reservedBy": "",
     "reservedAt": null,
     "note": "Art.-Nr. 177128",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/action-spielzeug/actionfiguren/spider-man-figuren-und-sets/playskool-heroes-marvel-super-hero-adventures-spider-mans-jet-quartier-flugzeug/p/177128",
+        "price": 34.99,
+        "icon": "🧸"
+      }
+    ]
   },
   {
     "id": "smyths-235073",
@@ -173,7 +283,21 @@
     "reservedBy": "",
     "reservedAt": null,
     "note": "Art.-Nr. 235073",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/vorschule/super-wings/super-wings-2-in-1-set-super-roboter-anzug-jett/p/235073",
+        "price": 24.99,
+        "icon": "🧸"
+      },
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B0CP9DXGJB/?coliid=I22LKZ3SVPJWB&colid=C3X3IZXP68SF",
+        "price": 24.99,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "smyths-258438",
@@ -188,8 +312,22 @@
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
-    "note": "Art.-Nr. 258438 | Auch bei Amazon (gleicher Preis): https://www.amazon.de/dp/B0FR9KDY34/",
-    "reservePin": ""
+    "note": "Art.-Nr. 258438",
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/action-spielzeug/dinosaurier/paw-patrol-der-dino-film-set-rubble-mit-dino-rettungs-bulldozer/p/258438",
+        "price": 19.99,
+        "icon": "🧸"
+      },
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B0FR9KDY34/?coliid=I3NDZTR30ECCN0&colid=C3X3IZXP68SF",
+        "price": 19.99,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "smyths-178285086",
@@ -205,13 +343,21 @@
     "reservedBy": "",
     "reservedAt": null,
     "note": "Art.-Nr. 178285086",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/action-spielzeug/pokemon/pokemon-figuren-und-sets/pokemon-clip-n-go-figur-glumanda-und-pokeball/p/178285086",
+        "price": 13.99,
+        "icon": "🧸"
+      }
+    ]
   },
   {
     "id": "smyths-258415",
     "title": "PAW Patrol Der Dino Film Mobile Einsatzzentrale 2-in-1 Set",
     "url": "https://www.smythstoys.com/at/de-at/spielzeug/vorschule/paw-patrol/paw-patrol-spielsets/paw-patrol-der-dino-film-mobile-einsatzzentrale-2-in-1-set/p/258415",
-    "price": 77.99,
+    "price": 77.98,
     "category": "Spielzeug",
     "priority": "medium",
     "image": "https://image.smythstoys.com/original/800/desktop/258415.jpg",
@@ -221,7 +367,21 @@
     "reservedBy": "",
     "reservedAt": null,
     "note": "Art.-Nr. 258415",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/vorschule/paw-patrol/paw-patrol-spielsets/paw-patrol-der-dino-film-mobile-einsatzzentrale-2-in-1-set/p/258415",
+        "price": 77.99,
+        "icon": "🧸"
+      },
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B0FR9JJQNF/?coliid=ITYQOF2CUV5ZD&colid=C3X3IZXP68SF",
+        "price": 77.98,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "smyths-235472001",
@@ -236,8 +396,22 @@
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
-    "note": "Art.-Nr. 235472001 | Auch bei Amazon (gleicher Preis): https://www.amazon.de/dp/B0DS6DYMLH/",
-    "reservePin": ""
+    "note": "Art.-Nr. 235472001",
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/plueschtiere-und-kuscheltiere/kuscheltiere/pokemon-plueschtiere/pokemon-kuscheltier-pokeball-12-5-cm/p/235472001",
+        "price": 7.99,
+        "icon": "🧸"
+      },
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B0DS6DYMLH/?coliid=IN6RIUF6C0HJF&colid=C3X3IZXP68SF",
+        "price": 7.99,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "smyths-167841",
@@ -253,13 +427,21 @@
     "reservedBy": "",
     "reservedAt": null,
     "note": "Art.-Nr. 167841",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/vorschule/pj-masks/pj-masks-eulette-gleiter-und-figur-set/p/167841",
+        "price": 12.99,
+        "icon": "🧸"
+      }
+    ]
   },
   {
     "id": "smyths-258460",
     "title": "PAW Patrol: Der Dino-Film Set Marshall mit Dino-Feuerwehrauto",
     "url": "https://www.smythstoys.com/at/de-at/spielzeug/vorschule/paw-patrol/paw-patrol-fahrzeuge-und-figuren/paw-patrol-der-dino-film-set-marshall-mit-dino-feuerwehrauto/p/258460",
-    "price": 19.99,
+    "price": 19.97,
     "category": "Spielzeug",
     "priority": "medium",
     "image": "https://image.smythstoys.com/original/800/desktop/258460.jpg",
@@ -268,8 +450,22 @@
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
-    "note": "Art.-Nr. 258460 | Auch bei Amazon (-0.02 €): https://www.amazon.de/dp/B0FR8DSTWR/",
-    "reservePin": ""
+    "note": "Art.-Nr. 258460",
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/vorschule/paw-patrol/paw-patrol-fahrzeuge-und-figuren/paw-patrol-der-dino-film-set-marshall-mit-dino-feuerwehrauto/p/258460",
+        "price": 19.99,
+        "icon": "🧸"
+      },
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B0FR8DSTWR/?coliid=I2MNQL11YJWTOJ&colid=C3X3IZXP68SF",
+        "price": 19.97,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "smyths-258461",
@@ -284,8 +480,22 @@
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
-    "note": "Art.-Nr. 258461 | Auch bei Amazon (gleicher Preis): https://www.amazon.de/dp/B0FR99TN3S/",
-    "reservePin": ""
+    "note": "Art.-Nr. 258461",
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/vorschule/paw-patrol/paw-patrol-fahrzeuge-und-figuren/paw-patrol-der-dino-film-set-skye-mit-dino-rettungsjet/p/258461",
+        "price": 19.99,
+        "icon": "🧸"
+      },
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B0FR99TN3S/?coliid=I1JR71I44JSVPC&colid=C3X3IZXP68SF",
+        "price": 19.99,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "smyths-256135",
@@ -300,8 +510,16 @@
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
-    "note": "Art.-Nr. 256135 | Auch bei Amazon (-45.00 €): https://www.amazon.de/dp/B09792MQCD/",
-    "reservePin": ""
+    "note": "Art.-Nr. 256135",
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/action-spielzeug/actionfiguren/spider-man-figuren-und-sets/marvel-spidey-und-seine-super-freunde-web-spinners-spielset/p/256135",
+        "price": 79.99,
+        "icon": "🧸"
+      }
+    ]
   },
   {
     "id": "smyths-254247",
@@ -317,7 +535,15 @@
     "reservedBy": "",
     "reservedAt": null,
     "note": "Art.-Nr. 254247",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/outdoor/sportbedarf/weitere-sportarten/baseball-set/p/254247",
+        "price": 6.99,
+        "icon": "🧸"
+      }
+    ]
   },
   {
     "id": "smyths-257797",
@@ -332,8 +558,22 @@
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
-    "note": "Art.-Nr. 257797 | Auch bei Amazon (+4.45 €): https://www.amazon.de/dp/B0G1ZCH75V/",
-    "reservePin": ""
+    "note": "Art.-Nr. 257797",
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/action-spielzeug/pokemon/pokemon-figuren-und-sets/pokemon-clip-n-go-pikachu/p/257797",
+        "price": 13.99,
+        "icon": "🧸"
+      },
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B0G1ZCH75V/?coliid=I3K55QXPZ2ZGY8&colid=C3X3IZXP68SF",
+        "price": 18.44,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "smyths-167840",
@@ -349,39 +589,39 @@
     "reservedBy": "",
     "reservedAt": null,
     "note": "Art.-Nr. 167840",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Smyths Toys",
+        "url": "https://www.smythstoys.com/at/de-at/spielzeug/vorschule/pj-masks/pj-masks-gecko-mobil-mit-figur-set/p/167840",
+        "price": 12.99,
+        "icon": "🧸"
+      }
+    ]
   },
   {
-    "id": "amazon-B0FSZZXX9N",
-    "title": "Hover Fussball mit Leuchtenden Augen & Spinnennetz, Indoor Fussball Geschenk Jungen 4 5 6 7 8 9 10 Jahre, Fußball Spielzeug ab 3-12 Jahre Jungen Kinderspielzeug Geburtstags Ostergeschenke Kinder",
-    "url": "https://www.amazon.de/dp/B0FSZZXX9N/?coliid=I3RMVUJ1XXTT65&colid=C3X3IZXP68SF",
-    "price": 18.99,
-    "category": "Garten & Outdoor",
-    "priority": "medium",
-    "image": "",
-    "description": "",
-    "shopName": "Amazon",
-    "status": "available",
-    "reservedBy": "",
-    "reservedAt": null,
-    "note": "ASIN: B0FSZZXX9N",
-    "reservePin": ""
-  },
-  {
-    "id": "amazon-B0CP9DXGJB",
-    "title": "Super Wings 2-in-1 Verwandelbares Roboter Spielzeug Jett, ca. 18 cm große Verwandlungsroboter und Auto, verwandelbare Spiel-Figur, für Kinder ab 3 Jahren, Rot",
-    "url": "https://www.amazon.de/dp/B0CP9DXGJB/?coliid=I22LKZ3SVPJWB&colid=C3X3IZXP68SF",
-    "price": 24.99,
+    "id": "amazon-B09792MQCD",
+    "title": "Spidey und Seine Super-Freunde SNF0081 - Web Spinning Laster, 3-in-1-Fahrzeug, ab 3 Jahren, Mehrfarbig",
+    "url": "https://www.amazon.de/dp/B09792MQCD/?coliid=IN22EURKTKTB&colid=C3X3IZXP68SF",
+    "price": 34.99,
     "category": "Spielzeug",
     "priority": "medium",
-    "image": "",
+    "image": "https://m.media-amazon.com/images/I/",
     "description": "",
     "shopName": "Amazon",
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
-    "note": "ASIN: B0CP9DXGJB",
-    "reservePin": ""
+    "note": "ASIN: B09792MQCD",
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B09792MQCD/?coliid=IN22EURKTKTB&colid=C3X3IZXP68SF",
+        "price": 34.99,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "amazon-B0BYPMMBD9",
@@ -390,46 +630,22 @@
     "price": 34.99,
     "category": "Spielzeug",
     "priority": "medium",
-    "image": "",
+    "image": "https://m.media-amazon.com/images/I/",
     "description": "",
     "shopName": "Amazon",
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
     "note": "ASIN: B0BYPMMBD9",
-    "reservePin": ""
-  },
-  {
-    "id": "amazon-B0FR9JWR34",
-    "title": "PAW PATROL: Der Dino Film, Zumas Dino-Rettungs-Hovercraft, Luftkissenbot mit Zuma-Figur und Dino-Freund für eigene Kino-Abenteuer zu Hause, Spielzeug für Kinder ab 3 Jahren | 18 cm Rettungs-Hovercraft | Mit Zuma & Dino-Figur | Mit beweglicher Rettungsklaue",
-    "url": "https://www.amazon.de/dp/B0FR9JWR34/?coliid=I3IJEMEYETWPBQ&colid=C3X3IZXP68SF",
-    "price": 19.97,
-    "category": "Spielzeug",
-    "priority": "medium",
-    "image": "",
-    "description": "",
-    "shopName": "Amazon",
-    "status": "available",
-    "reservedBy": "",
-    "reservedAt": null,
-    "note": "ASIN: B0FR9JWR34",
-    "reservePin": ""
-  },
-  {
-    "id": "amazon-B0FR9JJQNF",
-    "title": "PAW PATROL: Der Dino Film 2-in-1 Dino-Hauptquartier, ab 3 Jahren | Patroller wird zum Hauptquartier | 56 cm hoch | Mit Chase-Figur & Fahrzeug | Fahrzeug-Starter | Authentische Film-Details",
-    "url": "https://www.amazon.de/dp/B0FR9JJQNF/?coliid=ITYQOF2CUV5ZD&colid=C3X3IZXP68SF",
-    "price": 77.98,
-    "category": "Spielzeug",
-    "priority": "medium",
-    "image": "",
-    "description": "",
-    "shopName": "Amazon",
-    "status": "available",
-    "reservedBy": "",
-    "reservedAt": null,
-    "note": "ASIN: B0FR9JJQNF",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B0BYPMMBD9/?coliid=I1KL9YY23VMV4T&colid=C3X3IZXP68SF",
+        "price": 34.99,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "amazon-B07PX4GKMC",
@@ -438,14 +654,22 @@
     "price": 37.21,
     "category": "Spielzeug",
     "priority": "medium",
-    "image": "",
+    "image": "https://m.media-amazon.com/images/I/",
     "description": "",
     "shopName": "Amazon",
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
     "note": "ASIN: B07PX4GKMC",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B07PX4GKMC/?coliid=I1HYY49Q2ZFCDL&colid=C3X3IZXP68SF",
+        "price": 37.21,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "amazon-B0D1KXT28P",
@@ -454,14 +678,22 @@
     "price": 25.99,
     "category": "Wohnen & Deko",
     "priority": "medium",
-    "image": "",
+    "image": "https://m.media-amazon.com/images/I/",
     "description": "",
     "shopName": "Amazon",
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
     "note": "ASIN: B0D1KXT28P",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B0D1KXT28P/?coliid=IF5QZV6WBM7ZQ&colid=C3X3IZXP68SF",
+        "price": 25.99,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "amazon-B07KXM2MLQ",
@@ -470,14 +702,22 @@
     "price": 24.99,
     "category": "Kleidung",
     "priority": "medium",
-    "image": "",
+    "image": "https://m.media-amazon.com/images/I/",
     "description": "",
     "shopName": "Amazon",
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
     "note": "ASIN: B07KXM2MLQ",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B07KXM2MLQ/?coliid=I2ZL1NSG8LPY3E&colid=C3X3IZXP68SF",
+        "price": 24.99,
+        "icon": "📦"
+      }
+    ]
   },
   {
     "id": "amazon-B09PLKLZ27",
@@ -486,13 +726,21 @@
     "price": 24.99,
     "category": "Spielzeug",
     "priority": "medium",
-    "image": "",
+    "image": "https://m.media-amazon.com/images/I/",
     "description": "",
     "shopName": "Amazon",
     "status": "available",
     "reservedBy": "",
     "reservedAt": null,
     "note": "ASIN: B09PLKLZ27",
-    "reservePin": ""
+    "reservePin": "",
+    "shops": [
+      {
+        "name": "Amazon",
+        "url": "https://www.amazon.de/dp/B09PLKLZ27/?coliid=I2YC5IPQFIT7K9&colid=C3X3IZXP68SF",
+        "price": 24.99,
+        "icon": "📦"
+      }
+    ]
   }
 ]

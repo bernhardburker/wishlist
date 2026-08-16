@@ -1,15 +1,13 @@
-/**
- * Reservierungs-Modal: Einfacher Ablauf ohne Login
- */
-
 import { state } from "../state.js";
 import { storage } from "../storage.js";
 import { escapeHtml, formatCurrency, triggerConfetti, DEFAULT_IMAGE_PLACEHOLDER } from "../utils/helpers.js";
+import { getWishShops } from "../utils/shopHelper.js";
 import { toast } from "./toast.js";
 
 export function renderReserveModal(container, wish, preSelectBought = false) {
   if (!wish) return;
 
+  const shops = getWishShops(wish);
   const savedName = preSelectBought
     ? (wish.reservedBy || storage.getSavedUserName())
     : storage.getSavedUserName();
@@ -41,7 +39,15 @@ export function renderReserveModal(container, wish, preSelectBought = false) {
           <div class="reserve-product-info">
             <h4 class="reserve-product-title">${escapeHtml(wish.title)}</h4>
             <span class="reserve-product-price">${formatCurrency(wish.price)}</span>
-            ${wish.shopName ? `<span class="reserve-product-shop">Shop: ${escapeHtml(wish.shopName)}</span>` : ""}
+            ${shops.length > 0 ? `
+              <div class="reserve-shops-links" style="display:flex; flex-wrap:wrap; gap:0.35rem; margin-top:0.35rem;">
+                ${shops.map(s => `
+                  <a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer" class="badge badge-shop ${s.badgeClass}" style="text-decoration:none;" title="Bei ${escapeHtml(s.name)} ansehen">
+                    <span>${s.icon} ${escapeHtml(s.name)}${s.price && shops.length > 1 ? ` (${formatCurrency(s.price)})` : ''} ↗</span>
+                  </a>
+                `).join("")}
+              </div>
+            ` : (wish.shopName ? `<span class="reserve-product-shop">Shop: ${escapeHtml(wish.shopName)}</span>` : "")}
           </div>
         </div>
 

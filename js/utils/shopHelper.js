@@ -133,3 +133,67 @@ export function detectShop(url) {
     };
   }
 }
+
+/**
+ * Ermittelt alle verfügbaren Shops für einen Wunsch (Haupt-Shop + Alternativ-Shops)
+ */
+export function getWishShops(wish) {
+  if (!wish) return [];
+  const list = [];
+  const seenUrls = new Set();
+
+  const addShop = (name, url, price) => {
+    if (!url) return;
+    const cleanUrl = url.trim();
+    const urlKey = cleanUrl.split("?")[0].toLowerCase();
+    if (seenUrls.has(urlKey)) return;
+    seenUrls.add(urlKey);
+
+    const detected = detectShop(cleanUrl);
+    list.push({
+      name: name || detected.name,
+      url: cleanUrl,
+      price: typeof price === "number" && price > 0 ? price : (typeof wish.price === "number" ? wish.price : 0),
+      icon: detected.icon,
+      badgeClass: detected.badgeClass,
+      color: detected.color
+    });
+  };
+
+  // 1. Aus explizitem 'shops' Array
+  if (Array.isArray(wish.shops) && wish.shops.length > 0) {
+    for (const s of wish.shops) {
+      if (s && s.url) {
+        addShop(s.name, s.url, s.price);
+      }
+    }
+  }
+
+  // 2. Haupt-URL
+  if (wish.url) {
+    addShop(wish.shopName, wish.url, wish.price);
+  }
+
+  // 3. Alternative URL (falls vorhanden)
+  if (wish.alternativeUrl) {
+    addShop(wish.alternativeShopName, wish.alternativeUrl, wish.alternativePrice);
+  }
+
+  // 4. Aus Notiz extrahieren falls Links dort vermerkt sind
+  if (wish.note) {
+    const noteMatches = wish.note.match(/https?:\/\/[^\s|]+/g);
+    if (noteMatches) {
+      for (const extractedUrl of noteMatches) {
+        let extractedPrice = null;
+        const priceMatch = wish.note.match(/(\d+[.,]\d{2})\s*€/);
+        if (priceMatch) {
+          extractedPrice = parseFloat(priceMatch[1].replace(",", "."));
+        }
+        addShop(null, extractedUrl, extractedPrice);
+      }
+    }
+  }
+
+  return list;
+}
+
