@@ -260,9 +260,16 @@ class StateStore {
     }
     this.events = await storage.deleteEvent(eventId);
     if (this.activeEventId === eventId) {
-      this.activeEventId = this.events[0] ? this.events[0].id : "";
+      const nextActive = this.events.find(e => !e.isArchived) || this.events[0];
+      if (nextActive) {
+        this.setActiveEvent(nextActive.id);
+      } else {
+        this.activeEventId = "";
+        this.notify();
+      }
+    } else {
+      this.notify();
     }
-    this.notify();
     return this.events;
   }
 

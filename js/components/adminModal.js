@@ -578,12 +578,17 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
     btn.addEventListener("click", async () => {
       const evId = btn.getAttribute("data-id");
       const ev = (state.events || []).find(e => e.id === evId);
-      if (confirm(`Möchtest du die Veranstaltung "${ev ? ev.title : ''}" wirklich löschen? Alle zugehörigen Wünsche werden gelöscht.`)) {
+      const title = ev ? ev.title : "diese Veranstaltung";
+      if (confirm(`Möchtest du die Veranstaltung "${title}" wirklich löschen? Alle zugehörigen Wünsche werden dauerhaft gelöscht.`)) {
         try {
           await state.deleteEvent(evId);
-          toast.info("Veranstaltung gelöscht.");
+          toast.info(`Veranstaltung "${escapeHtml(title)}" wurde gelöscht.`);
         } catch (err) {
           toast.error(err.message || "Fehler beim Löschen");
+          if (err.message && err.message.includes("Admin-PIN")) {
+            state.logoutAdmin();
+            state.openModal("admin");
+          }
         }
       }
     });

@@ -31,10 +31,10 @@ export class StorageService {
       console.warn("Fehler beim Lesen der Server-Konfiguration:", e);
     }
 
-    const isLocalOrSelfHosted = window.location.hostname !== "localhost" && !window.location.hostname.endsWith("github.io");
+    const isHttp = typeof window !== "undefined" && window.location.protocol.startsWith("http");
     return {
-      enabled: isLocalOrSelfHosted,
-      serverUrl: isLocalOrSelfHosted ? window.location.origin : ""
+      enabled: isHttp,
+      serverUrl: isHttp ? window.location.origin : ""
     };
   }
 
@@ -65,17 +65,27 @@ export class StorageService {
   }
 
   getAdminPin() {
-    return (
-      sessionStorage.getItem(STORAGE_KEYS.ADMIN_PIN) ||
-      localStorage.getItem(STORAGE_KEYS.ADMIN_PIN) ||
-      this.loadSettings().adminPin ||
-      ""
-    );
+    const fromSession = sessionStorage.getItem(STORAGE_KEYS.ADMIN_PIN);
+    if (fromSession && fromSession.trim()) return fromSession.trim();
+
+    const fromLocal = localStorage.getItem(STORAGE_KEYS.ADMIN_PIN);
+    if (fromLocal && fromLocal.trim()) return fromLocal.trim();
+
+    const settings = this.loadSettings();
+    if (settings && settings.adminPin && settings.adminPin.trim()) {
+      return settings.adminPin.trim();
+    }
+    return "1234";
   }
 
   setAdminPin(pin) {
     if (pin) {
-      sessionStorage.setItem(STORAGE_KEYS.ADMIN_PIN, pin.trim());
+      const clean = pin.trim();
+      sessionStorage.setItem(STORAGE_KEYS.ADMIN_PIN, clean);
+      localStorage.setItem(STORAGE_KEYS.ADMIN_PIN, clean);
+      const settings = this.loadSettings();
+      settings.adminPin = clean;
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
     }
   }
 
@@ -83,6 +93,9 @@ export class StorageService {
    * Verifiziert den Admin-PIN gegen den Server
    */
   async verifyAdminPin(pin) {
+    const cleanPin = (pin || "").trim();
+    if (!cleanPin) return false;
+
     const baseUrl = this.getApiBaseUrl();
     const apiUrl = baseUrl ? `${baseUrl}/api/admin/verify` : `/api/admin/verify`;
 
@@ -90,11 +103,14 @@ export class StorageService {
       const res = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: pin.trim() })
+        body: JSON.stringify({ pin: cleanPin })
       });
       if (res.ok) {
         const data = await res.json();
         if (data && typeof data.valid === "boolean") {
+          if (data.valid) {
+            this.setAdminPin(cleanPin);
+          }
           return data.valid;
         }
       }
@@ -104,7 +120,11 @@ export class StorageService {
 
     // Fallback auf lokale Settings
     const settings = this.loadSettings();
-    return pin.trim() === (settings.adminPin || "").trim();
+    const valid = cleanPin === (settings.adminPin || "1234").trim();
+    if (valid) {
+      this.setAdminPin(cleanPin);
+    }
+    return valid;
   }
 
   /**
@@ -228,9 +248,8 @@ export class StorageService {
       });
     }
 
-    this.saveLocalEvents(events);
-    await this.syncEventsToServer(events);
-    return events;
+    const synced = await this.syncEventsToServer(events);
+    return synced || events;
   }
 
   /**
@@ -239,12 +258,11 @@ export class StorageService {
   async deleteEvent(eventId) {
     let events = await this.loadEvents();
     if (events.length <= 1) {
-      throw new Error("Die letzte verbleibende Veranstaltung kann nicht gelöscht werden.");
+      throw new Error("Die letzte verbleibende Veranstaltung kann nicht gelöscht werden. Bitte lege zuerst eine neue Veranstaltung an.");
     }
-    events = events.filter((e) => e.id !== eventId && e.slug !== eventId);
-    this.saveLocalEvents(events);
-    await this.syncEventsToServer(events);
-    return events;
+    const filtered = events.filter((e) => e.id !== eventId && e.slug !== eventId);
+    const synced = await this.syncEventsToServer(filtered);
+    return synced || filtered;
   }
 
   /**
@@ -329,9 +347,8 @@ export class StorageService {
       event.wishes = [...event.wishes, ...newWishes];
     }
 
-    this.saveLocalEvents(events);
-    await this.syncEventsToServer(events);
-    return events;
+    const synced = await this.syncEventsToServer(events);
+    return synced || events;
   }
 
   /**
@@ -351,13 +368,28 @@ export class StorageService {
         },
         body: JSON.stringify(events)
       });
+
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        console.warn("Server Event-Sync Fehlermeldung:", errData.error || res.statusText);
+        const errMsg = errData.error || `HTTP ${res.status}`;
+        if (res.status === 401) {
+          throw new Error("Admin-PIN nicht autorisiert. Bitte melde dich mit deiner PIN an.");
+        }
+        throw new Error(`Server-Fehler (${res.status}): ${errMsg}`);
+      }
+
+      const data = await res.json().catch(() => ({}));
+      if (data && data.events) {
+        this.saveLocalEvents(data.events);
+        return data.events;
       }
     } catch (e) {
-      console.warn("Konnte Events nicht zum Server übertragen:", e);
+      console.warn("Server-Sync Fehler:", e);
+      throw e;
     }
+
+    this.saveLocalEvents(events);
+    return events;
   }
 
   async syncWishToServer(eventId, wish) {
@@ -376,10 +408,14 @@ export class StorageService {
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        console.warn("Server Wish-Sync Fehler:", errData.error || res.statusText);
+        if (res.status === 401) {
+          throw new Error("Admin-PIN nicht autorisiert.");
+        }
+        throw new Error(errData.error || `HTTP ${res.status}`);
       }
     } catch (e) {
       console.warn("Konnte Wunsch nicht zum Server übertragen:", e);
+      throw e;
     }
   }
 
@@ -399,10 +435,14 @@ export class StorageService {
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        console.warn("Server Delete-Wish Fehler:", errData.error || res.statusText);
+        if (res.status === 401) {
+          throw new Error("Admin-PIN nicht autorisiert.");
+        }
+        throw new Error(errData.error || `HTTP ${res.status}`);
       }
     } catch (e) {
       console.warn("Konnte Wunsch auf Server nicht löschen:", e);
+      throw e;
     }
   }
 
@@ -413,7 +453,8 @@ export class StorageService {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
       if (saved) {
-        return { ...defaultSettings, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        return { ...defaultSettings, ...parsed, adminPin: parsed.adminPin || defaultSettings.adminPin || "1234" };
       }
     } catch (e) {
       console.error("Fehler beim Laden der Einstellungen:", e);
@@ -427,13 +468,12 @@ export class StorageService {
       this.setAdminPin(settings.adminPin);
     }
 
-    // Sync Settings to Server
     const baseUrl = this.getApiBaseUrl();
     const apiUrl = baseUrl ? `${baseUrl}/api/settings` : `/api/settings`;
     const adminPin = this.getAdminPin();
 
     try {
-      await fetch(apiUrl, {
+      const res = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -441,6 +481,10 @@ export class StorageService {
         },
         body: JSON.stringify(settings)
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.warn("Konnte Settings nicht zum Server synchronisieren:", errData.error || res.statusText);
+      }
     } catch (e) {
       console.warn("Konnte Settings nicht zum Server synchronisieren:", e);
     }
@@ -455,7 +499,7 @@ export class StorageService {
     const exportObject = {
       version: 2,
       exportedAt: new Date().toISOString(),
-      settings: { ...settings, adminPin: undefined }, // PIN nicht in Backups exportieren
+      settings: { ...settings, adminPin: undefined },
       events
     };
     const blob = new Blob([JSON.stringify(exportObject, null, 2)], { type: "application/json" });

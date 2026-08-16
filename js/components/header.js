@@ -157,10 +157,21 @@ export function renderHeader(container) {
     });
   }
 
-  // Server Status Modal Button
+  // Server Status Modal Button & Connectivity Check
   const btnServer = container.querySelector("#btn-server-status");
   if (btnServer) {
     btnServer.addEventListener("click", () => state.openModal("config"));
+    storage.testServerConnection().then(res => {
+      if (!res.success) {
+        btnServer.classList.remove("server-online");
+        btnServer.classList.add("server-offline");
+        btnServer.title = `Burkerserver getrennt: ${res.message}`;
+      } else {
+        btnServer.classList.remove("server-offline");
+        btnServer.classList.add("server-online");
+        btnServer.title = `Burkerserver verbunden (${storage.getApiBaseUrl() || "Lokal"})`;
+      }
+    });
   }
 
   const btnOpenAdmin = container.querySelector("#btn-open-admin");
