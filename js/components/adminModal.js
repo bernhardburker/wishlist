@@ -1,16 +1,19 @@
 /**
- * Admin-Modal zur Listenverwaltung (Wünsche anlegen/bearbeiten, Einstellungen, Backup)
+ * Admin-Modal zur Verwaltung von Wünschen, Multi-Events, CSV/JSON-Import & Einstellungen
  */
 
 import { state } from "../state.js";
 import { storage } from "../storage.js";
-import { escapeHtml, generateId } from "../utils/helpers.js";
+import { escapeHtml, generateId, formatCurrency } from "../utils/helpers.js";
 import { detectShop } from "../utils/shopHelper.js";
+import { parseWishesFromCsv, downloadCsvTemplate } from "../utils/csvHelper.js";
 import { toast } from "./toast.js";
 
 export function renderAdminModal(container, modalType = "admin", editingWish = null) {
   const isAdmin = state.isAdmin;
   const isEditing = Boolean(editingWish);
+  const events = state.events || [];
+  const activeEvent = state.getActiveEvent();
 
   const modalOverlay = document.createElement("div");
   modalOverlay.className = "modal-overlay";
@@ -22,7 +25,7 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
     }, 200);
   };
 
-  // --- 1. PIN EINGABE (Falls noch nicht als Admin authentifiziert) ---
+  // --- 1. PIN EINGABE (Falls noch nicht eingeloggt) ---
   if (!isAdmin && modalType !== "addWish" && modalType !== "editWish") {
     modalOverlay.innerHTML = `
       <div class="modal-card modal-admin-auth" role="dialog">
@@ -32,7 +35,7 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
         </div>
         <div class="modal-body">
           <p class="modal-intro">
-            Gib deinen Admin-PIN ein, um Wünsche hinzuzufügen, zu bearbeiten oder Einstellungen anzupassen.
+            Gib deinen Admin-PIN ein, um Veranstaltungen und Wünsche zu verwalten oder Dateien zu importieren.
           </p>
           <form id="form-admin-login">
             <div class="form-group">
@@ -45,7 +48,7 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
                 required
                 autofocus
               />
-              <span class="form-hint">Hinweis: Der Standard-PIN ist <strong>1234</strong> (kann nach dem Login geändert werden).</span>
+              <span class="form-hint">Hinweis: Der Standard-PIN ist <strong>1234</strong>.</span>
             </div>
             <div class="modal-actions">
               <button type="button" class="btn btn-ghost btn-cancel-modal">Abbrechen</button>
@@ -81,7 +84,9 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
   }
 
   // --- 2. ADMIN INTERFACE ---
-  const activeTab = (modalType === "addWish" || modalType === "editWish") ? "wish" : "settings";
+  let activeTab = "events";
+  if (modalType === "addWish" || modalType === "editWish") activeTab = "wish";
+
   const settings = state.settings;
   const wishData = editingWish || {
     id: "",
@@ -99,29 +104,128 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
   modalOverlay.innerHTML = `
     <div class="modal-card modal-admin-dashboard" role="dialog">
       <div class="modal-header">
-        <h2 class="modal-title">
-          ${isEditing ? "✏️ Wunsch bearbeiten" : (modalType === "addWish" ? "+ Neuen Wunsch hinzufügen" : "⚙️ Wunschlisten-Verwaltung")}
-        </h2>
+        <h2 class="modal-title">⚙️ Wunschlisten-Verwaltung</h2>
         <button class="modal-close-btn">&times;</button>
       </div>
 
       <div class="modal-tabs">
+        <button class="tab-btn ${activeTab === 'events' ? 'active' : ''}" data-tab="tab-events">
+          📅 Veranstaltungen (${events.length})
+        </button>
         <button class="tab-btn ${activeTab === 'wish' ? 'active' : ''}" data-tab="tab-wish">
           ${isEditing ? "✏️ Wunsch bearbeiten" : "+ Wunsch anlegen"}
         </button>
-        <button class="tab-btn ${activeTab === 'settings' ? 'active' : ''}" data-tab="tab-settings">
-          ⚙️ Texte &amp; Einstellungen
+        <button class="tab-btn ${activeTab === 'import' ? 'active' : ''}" data-tab="tab-import">
+          📥 Datei-Import (CSV/JSON)
         </button>
-        <button class="tab-btn" data-tab="tab-backup">
-          💾 Backup &amp; Daten
+        <button class="tab-btn ${activeTab === 'settings' ? 'active' : ''}" data-tab="tab-settings">
+          💾 Backup &amp; PIN
         </button>
       </div>
 
       <div class="modal-body modal-body-scrollable">
-        <!-- TAB 1: WUNSCH FORMULAR -->
+
+        <!-- TAB 1: VERANSTALTUNGEN -->
+        <div id="tab-events" class="tab-content ${activeTab === 'events' ? 'active' : ''}">
+          <div class="tab-section-header">
+            <div>
+              <h3>Veranstaltungen &amp; Anlässe</h3>
+              <p class="form-hint">Erstelle eigene Wunschlisten für Geburtstage, Weihnachten, Hochzeiten etc.</p>
+            </div>
+            <button id="btn-show-add-event" class="btn btn-primary btn-sm">
+              <span>+ Neue Veranstaltung</span>
+            </button>
+          </div>
+
+          <!-- Formular: Neues / Bearbeitetes Event (zunächst versteckt) -->
+          <div id="event-editor-card" class="event-editor-card" style="display: none;">
+            <h4 id="event-editor-title">Neue Veranstaltung anlegen</h4>
+            <form id="form-event-editor">
+              <input type="hidden" id="event-edit-id" value="" />
+              <div class="form-row-grid">
+                <div class="form-group" style="grid-column: span 2;">
+                  <label for="event-title-input" class="form-label required-label">Name der Veranstaltung:</label>
+                  <input type="text" id="event-title-input" class="form-input" placeholder="z. B. Emilias 4. Geburtstag" required />
+                </div>
+                <div class="form-group">
+                  <label for="event-icon-input" class="form-label">Symbol / Icon:</label>
+                  <input type="text" id="event-icon-input" class="form-input" placeholder="🎂, 🎄, 💍, 🍼" value="🎁" />
+                </div>
+              </div>
+
+              <div class="form-row-grid">
+                <div class="form-group" style="grid-column: span 2;">
+                  <label for="event-date-input" class="form-label">Datum der Feier (optional):</label>
+                  <input type="date" id="event-date-input" class="form-input" />
+                </div>
+                <div class="form-group">
+                  <label for="event-slug-input" class="form-label">URL-Kürzel (Link):</label>
+                  <input type="text" id="event-slug-input" class="form-input" placeholder="geburtstag-2026" />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="event-subtitle-input" class="form-label">Begrüßungstext für die Gäste:</label>
+                <textarea id="event-subtitle-input" class="form-textarea" rows="2" placeholder="Herzlich willkommen! Hier findet ihr alle Geschenkideen..."></textarea>
+              </div>
+
+              <div class="modal-actions" style="margin-top: 0.5rem;">
+                <button type="button" id="btn-cancel-event-edit" class="btn btn-ghost btn-sm">Abbrechen</button>
+                <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
+              </div>
+            </form>
+            <hr class="divider" />
+          </div>
+
+          <!-- Liste der existierenden Events -->
+          <div class="events-list">
+            ${events.map(ev => `
+              <div class="event-list-item ${ev.id === state.activeEventId ? 'is-current' : ''}">
+                <div class="event-item-icon">${escapeHtml(ev.icon || "🎁")}</div>
+                <div class="event-item-info">
+                  <div class="event-item-title-row">
+                    <strong>${escapeHtml(ev.title)}</strong>
+                    ${ev.id === state.activeEventId ? '<span class="badge badge-active-event">Aktiv</span>' : ''}
+                  </div>
+                  <span class="event-item-meta">
+                    ${(ev.wishes || []).length} Wünsche &bull; ${ev.date ? `🗓️ ${ev.date}` : "Kein Datum"} &bull; Link: <code>#${escapeHtml(ev.slug || ev.id)}</code>
+                  </span>
+                </div>
+                <div class="event-item-actions">
+                  ${ev.id !== state.activeEventId ? `
+                    <button class="btn btn-sm btn-outline btn-switch-event" data-id="${ev.id}" title="Als aktuelle Ansicht öffnen">
+                      Öffnen ↗
+                    </button>
+                  ` : ''}
+                  <button class="btn btn-sm btn-ghost btn-edit-event" data-id="${ev.id}" title="Bearbeiten">
+                    ✏️
+                  </button>
+                  ${events.length > 1 ? `
+                    <button class="btn btn-sm btn-ghost btn-delete-event" data-id="${ev.id}" title="Löschen">
+                      🗑️
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+
+        <!-- TAB 2: WUNSCH ANLEGEN / BEARBEITEN -->
         <div id="tab-wish" class="tab-content ${activeTab === 'wish' ? 'active' : ''}">
           <form id="form-wish-editor">
             <input type="hidden" id="wish-id" value="${escapeHtml(wishData.id)}" />
+
+            <div class="form-group">
+              <label for="wish-target-event" class="form-label required-label">Zu welcher Veranstaltung hinzufügen?</label>
+              <select id="wish-target-event" class="form-select">
+                ${events.map(ev => `
+                  <option value="${escapeHtml(ev.id)}" ${ev.id === state.activeEventId ? "selected" : ""}>
+                    ${escapeHtml(ev.icon || "🎁")} ${escapeHtml(ev.title)}
+                  </option>
+                `).join("")}
+              </select>
+            </div>
 
             <div class="form-group">
               <label for="wish-title" class="form-label required-label">Name des Geschenks / Titel:</label>
@@ -177,7 +281,7 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
               <div class="form-group">
                 <label for="wish-priority" class="form-label">Priorität:</label>
                 <select id="wish-priority" class="form-select">
-                  <option value="high" ${wishData.priority === 'high' ? 'selected' : ''}>⭐ Lieblingswunsch (ganz oben)</option>
+                  <option value="high" ${wishData.priority === 'high' ? 'selected' : ''}>⭐ Lieblingswunsch (oben)</option>
                   <option value="medium" ${wishData.priority === 'medium' || !wishData.priority ? 'selected' : ''}>Normaler Wunsch</option>
                   <option value="low" ${wishData.priority === 'low' ? 'selected' : ''}>Wäre auch nett (niedrig)</option>
                 </select>
@@ -185,19 +289,18 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
             </div>
 
             <div class="form-group">
-              <label for="wish-image" class="form-label">Bild-URL (Link zu einem Produktfoto):</label>
+              <label for="wish-image" class="form-label">Bild-URL (Produktfoto):</label>
               <input
                 type="url"
                 id="wish-image"
                 class="form-input"
-                placeholder="https://... (Bildlink aus dem Shop kopieren)"
+                placeholder="https://... (Bildadresse aus dem Shop)"
                 value="${escapeHtml(wishData.image)}"
               />
-              <span class="form-hint">Tipp: Im Shop Rechtsklick auf das Produktbild -> „Bildadresse kopieren“.</span>
             </div>
 
             <div class="form-group">
-              <label for="wish-description" class="form-label">Beschreibung / Warum gewünscht:</label>
+              <label for="wish-description" class="form-label">Beschreibung:</label>
               <textarea
                 id="wish-description"
                 class="form-textarea"
@@ -207,12 +310,12 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
             </div>
 
             <div class="form-group">
-              <label for="wish-note" class="form-label">Wichtige Details &amp; Notizen (z. B. Größe, Farbe, Modell):</label>
+              <label for="wish-note" class="form-label">Details / Notizen (Größe, Farbe, Modell):</label>
               <input
                 type="text"
                 id="wish-note"
                 class="form-input"
-                placeholder="z. B. Größe 116, Farbe Blau, Modell 2026"
+                placeholder="z. B. Größe 116, Farbe Blau"
                 value="${escapeHtml(wishData.note)}"
               />
             </div>
@@ -226,55 +329,104 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
           </form>
         </div>
 
-        <!-- TAB 2: TEXTE & EINSTELLUNGEN -->
-        <div id="tab-settings" class="tab-content ${activeTab === 'settings' ? 'active' : ''}">
-          <form id="form-settings-editor">
-            <div class="form-group">
-              <label for="setting-title" class="form-label required-label">Überschrift der Wunschliste:</label>
-              <input
-                type="text"
-                id="setting-title"
-                class="form-input"
-                value="${escapeHtml(settings.listTitle)}"
-                required
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="setting-subtitle" class="form-label">Begrüßungstext &amp; Beschreibung:</label>
-              <textarea
-                id="setting-subtitle"
-                class="form-textarea"
-                rows="3"
-              >${escapeHtml(settings.listSubtitle)}</textarea>
-            </div>
-
-            <div class="form-group">
-              <label for="setting-admin-pin" class="form-label">Admin-PIN ändern:</label>
-              <input
-                type="text"
-                id="setting-admin-pin"
-                class="form-input"
-                value="${escapeHtml(settings.adminPin)}"
-                required
-              />
-              <span class="form-hint">Mit diesem PIN kannst du diesen Verwaltungsbereich jederzeit öffnen.</span>
-            </div>
-
-            <div class="modal-actions">
-              <button type="button" class="btn btn-ghost btn-cancel-modal">Abbrechen</button>
-              <button type="submit" class="btn btn-primary">
-                <span>Einstellungen speichern</span>
+        <!-- TAB 3: DATEI-IMPORT (CSV / JSON) -->
+        <div id="tab-import" class="tab-content ${activeTab === 'import' ? 'active' : ''}">
+          <div class="import-section">
+            <div class="import-header-card">
+              <div>
+                <h4>📥 Geschenke per Datei importieren</h4>
+                <p class="form-hint">
+                  Lade eine <strong>CSV-Datei</strong> (z. B. aus Excel oder Google Sheets) oder eine JSON-Datei hoch, um viele Geschenke auf einmal hinzuzufügen.
+                </p>
+              </div>
+              <button id="btn-download-csv-template" class="btn btn-outline btn-sm" type="button">
+                <span>📄 CSV-Mustervorlage laden</span>
               </button>
             </div>
-          </form>
+
+            <div class="form-group">
+              <label for="import-target-event" class="form-label required-label">Ziel-Veranstaltung:</label>
+              <select id="import-target-event" class="form-select">
+                ${events.map(ev => `
+                  <option value="${escapeHtml(ev.id)}" ${ev.id === state.activeEventId ? "selected" : ""}>
+                    ${escapeHtml(ev.icon || "🎁")} ${escapeHtml(ev.title)} (${(ev.wishes || []).length} Wünsche)
+                  </option>
+                `).join("")}
+              </select>
+            </div>
+
+            <div class="file-dropzone" id="file-dropzone">
+              <input type="file" id="file-import-wishes" accept=".csv, .json, text/csv, application/json" style="display:none;" />
+              <div class="dropzone-content">
+                <span class="dropzone-icon">📁</span>
+                <p><strong>CSV- oder JSON-Datei hierher ziehen</strong> oder klicken zum Auswählen</p>
+                <span class="form-hint">Unterstützt Semikolon (;) und Komma (,) getrennte Tabellen</span>
+              </div>
+            </div>
+
+            <!-- Import Vorschau -->
+            <div id="import-preview-box" class="import-preview-box" style="display:none;">
+              <h4 id="import-preview-title">Vorschau der erkannten Geschenke</h4>
+              <div class="table-responsive">
+                <table class="preview-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Titel</th>
+                      <th>Shop</th>
+                      <th>Preis</th>
+                      <th>Kategorie</th>
+                      <th>Priorität</th>
+                    </tr>
+                  </thead>
+                  <tbody id="import-preview-tbody"></tbody>
+                </table>
+              </div>
+
+              <div class="import-mode-selection">
+                <label class="radio-label">
+                  <input type="radio" name="importMode" value="append" checked />
+                  <span>An bestehende Wünsche <strong>anhängen</strong></span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="importMode" value="replace" />
+                  <span>Bestehende Wünsche dieser Veranstaltung <strong>ersetzen</strong></span>
+                </label>
+              </div>
+
+              <div class="modal-actions" style="margin-top: 1rem;">
+                <button type="button" id="btn-cancel-import-preview" class="btn btn-ghost">Verwerfen</button>
+                <button type="button" id="btn-execute-import" class="btn btn-primary">
+                  <span>Geschenke jetzt importieren 🚀</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- TAB 3: BACKUP & DATEN -->
-        <div id="tab-backup" class="tab-content">
+        <!-- TAB 4: BACKUP & EINSTELLUNGEN -->
+        <div id="tab-settings" class="tab-content">
           <div class="backup-section">
-            <h4>💾 Wunschliste sichern (Export)</h4>
-            <p class="form-hint">Lade deine aktuellen Wünsche und Einstellungen als JSON-Datei auf deinen Computer herunter.</p>
+            <h4>🔑 Admin-Sicherheit</h4>
+            <form id="form-admin-pin-settings" style="margin-bottom: 1.5rem;">
+              <div class="form-group">
+                <label for="setting-admin-pin" class="form-label">Admin-PIN ändern:</label>
+                <input
+                  type="text"
+                  id="setting-admin-pin"
+                  class="form-input"
+                  value="${escapeHtml(settings.adminPin)}"
+                  required
+                />
+                <span class="form-hint">Mit diesem PIN entsperrst du diesen Verwaltungsbereich.</span>
+              </div>
+              <button type="submit" class="btn btn-sm btn-secondary">PIN speichern</button>
+            </form>
+
+            <hr class="divider" />
+
+            <h4>💾 Komplettes Backup aller Veranstaltungen (Export)</h4>
+            <p class="form-hint">Sichere alle Veranstaltungen und Wünsche in einer einzigen JSON-Datei.</p>
             <button id="btn-export-backup" class="btn btn-secondary">
               <span>📥 Backup als JSON herunterladen</span>
             </button>
@@ -282,21 +434,21 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
             <hr class="divider" />
 
             <h4>📂 Backup wiederherstellen (Import)</h4>
-            <p class="form-hint">Stelle eine zuvor gesicherte Wunschliste aus einer JSON-Datei wieder her.</p>
-            <input type="file" id="file-import-input" accept=".json" style="display: none;" />
-            <button id="btn-trigger-import" class="btn btn-outline">
-              <span>📤 JSON-Backup auswählen &amp; einspielen</span>
+            <p class="form-hint">Stelle ein vollständiges Backup aller Veranstaltungen wieder her.</p>
+            <input type="file" id="file-import-backup" accept=".json" style="display: none;" />
+            <button id="btn-trigger-import-backup" class="btn btn-outline">
+              <span>📤 JSON-Backup wiederherstellen</span>
             </button>
 
             <hr class="divider" />
 
             <h4>⚠️ Auf Standard-Musterliste zurücksetzen</h4>
-            <p class="form-hint">Setzt alle Einträge und Reservierungen auf die ursprünglichen Beispiel-Geschenke zurück.</p>
             <button id="btn-reset-defaults" class="btn btn-ghost btn-danger-text">
-              <span>↺ Standard-Beispieldaten laden</span>
+              <span>↺ Auf Standard-Veranstaltungen zurücksetzen</span>
             </button>
           </div>
         </div>
+
       </div>
     </div>
   `;
@@ -322,7 +474,95 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
     });
   });
 
-  // Shop auto-detect on URL change in form
+  // ==========================================
+  // EVENT MANAGEMENT HANDLERS
+  // ==========================================
+  const eventEditorCard = modalOverlay.querySelector("#event-editor-card");
+  const btnShowAddEvent = modalOverlay.querySelector("#btn-show-add-event");
+  const btnCancelEventEdit = modalOverlay.querySelector("#btn-cancel-event-edit");
+  const formEventEditor = modalOverlay.querySelector("#form-event-editor");
+
+  if (btnShowAddEvent && eventEditorCard) {
+    btnShowAddEvent.addEventListener("click", () => {
+      modalOverlay.querySelector("#event-editor-title").textContent = "Neue Veranstaltung anlegen";
+      modalOverlay.querySelector("#event-edit-id").value = "";
+      modalOverlay.querySelector("#event-title-input").value = "";
+      modalOverlay.querySelector("#event-icon-input").value = "🎁";
+      modalOverlay.querySelector("#event-date-input").value = "";
+      modalOverlay.querySelector("#event-slug-input").value = "";
+      modalOverlay.querySelector("#event-subtitle-input").value = "";
+      eventEditorCard.style.display = "block";
+      modalOverlay.querySelector("#event-title-input").focus();
+    });
+  }
+
+  if (btnCancelEventEdit && eventEditorCard) {
+    btnCancelEventEdit.addEventListener("click", () => {
+      eventEditorCard.style.display = "none";
+    });
+  }
+
+  if (formEventEditor) {
+    formEventEditor.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const id = modalOverlay.querySelector("#event-edit-id").value;
+      const title = modalOverlay.querySelector("#event-title-input").value.trim();
+      const icon = modalOverlay.querySelector("#event-icon-input").value.trim() || "🎁";
+      const date = modalOverlay.querySelector("#event-date-input").value;
+      const slug = modalOverlay.querySelector("#event-slug-input").value.trim();
+      const subtitle = modalOverlay.querySelector("#event-subtitle-input").value.trim();
+
+      const saved = await state.saveEvent({ id, title, icon, date, slug, subtitle });
+      toast.success(`Veranstaltung "${escapeHtml(title)}" gespeichert!`);
+      state.setActiveEvent(saved.id);
+      eventEditorCard.style.display = "none";
+    });
+  }
+
+  // Event List Actions
+  modalOverlay.querySelectorAll(".btn-switch-event").forEach(btn => {
+    btn.addEventListener("click", () => {
+      state.setActiveEvent(btn.getAttribute("data-id"));
+      toast.info("Zur ausgewählten Veranstaltung gewechselt.");
+      state.closeModal();
+    });
+  });
+
+  modalOverlay.querySelectorAll(".btn-edit-event").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const evId = btn.getAttribute("data-id");
+      const ev = events.find(e => e.id === evId);
+      if (ev) {
+        modalOverlay.querySelector("#event-editor-title").textContent = `Veranstaltung bearbeiten: ${ev.title}`;
+        modalOverlay.querySelector("#event-edit-id").value = ev.id;
+        modalOverlay.querySelector("#event-title-input").value = ev.title;
+        modalOverlay.querySelector("#event-icon-input").value = ev.icon || "🎁";
+        modalOverlay.querySelector("#event-date-input").value = ev.date || "";
+        modalOverlay.querySelector("#event-slug-input").value = ev.slug || "";
+        modalOverlay.querySelector("#event-subtitle-input").value = ev.subtitle || "";
+        eventEditorCard.style.display = "block";
+      }
+    });
+  });
+
+  modalOverlay.querySelectorAll(".btn-delete-event").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const evId = btn.getAttribute("data-id");
+      const ev = events.find(e => e.id === evId);
+      if (confirm(`Möchtest du die Veranstaltung "${ev ? ev.title : ''}" wirklich löschen? Alle zugehörigen Wünsche werden gelöscht.`)) {
+        try {
+          await state.deleteEvent(evId);
+          toast.info("Veranstaltung gelöscht.");
+        } catch (err) {
+          toast.error(err.message);
+        }
+      }
+    });
+  });
+
+  // ==========================================
+  // WISH FORM HANDLERS
+  // ==========================================
   const urlInput = modalOverlay.querySelector("#wish-url");
   const shopHint = modalOverlay.querySelector("#shop-detected-hint");
   if (urlInput && shopHint) {
@@ -331,16 +571,16 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
       if (urlInput.value.trim()) {
         shopHint.innerHTML = `Erkannter Shop: <strong>${detected.icon} ${escapeHtml(detected.name)}</strong>`;
       } else {
-        shopHint.textContent = "Füge einen Link von Amazon, Smyths Toys, etc. ein.";
+        shopHint.textContent = "Füge einen Link von Amazon, Smyths Toys etc. ein.";
       }
     });
   }
 
-  // Submit Wunsch
   const wishForm = modalOverlay.querySelector("#form-wish-editor");
   if (wishForm) {
     wishForm.addEventListener("submit", async (e) => {
       e.preventDefault();
+      const targetEventId = modalOverlay.querySelector("#wish-target-event").value;
       const id = wishForm.querySelector("#wish-id").value || generateId("wish");
       const title = wishForm.querySelector("#wish-title").value.trim();
       const url = wishForm.querySelector("#wish-url").value.trim();
@@ -369,50 +609,156 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
         reservePin: wishData.reservePin || ""
       };
 
-      await state.saveWish(payload);
-      toast.success(isEditing ? `"${escapeHtml(title)}" aktualisiert!` : `"${escapeHtml(title)}" zur Wunschliste hinzugefügt!`);
+      await state.saveWish(payload, targetEventId);
+      toast.success(isEditing ? `"${escapeHtml(title)}" aktualisiert!` : `"${escapeHtml(title)}" hinzugefügt!`);
       state.closeModal();
     });
   }
 
-  // Submit Settings
-  const settingsForm = modalOverlay.querySelector("#form-settings-editor");
-  if (settingsForm) {
-    settingsForm.addEventListener("submit", (e) => {
+  // ==========================================
+  // FILE IMPORT HANDLERS (CSV & JSON)
+  // ==========================================
+  let parsedImportWishes = [];
+  const btnDownloadTemplate = modalOverlay.querySelector("#btn-download-csv-template");
+  const fileDropzone = modalOverlay.querySelector("#file-dropzone");
+  const fileInputWishes = modalOverlay.querySelector("#file-import-wishes");
+  const importPreviewBox = modalOverlay.querySelector("#import-preview-box");
+  const importPreviewTbody = modalOverlay.querySelector("#import-preview-tbody");
+  const btnExecuteImport = modalOverlay.querySelector("#btn-execute-import");
+  const btnCancelPreview = modalOverlay.querySelector("#btn-cancel-import-preview");
+
+  if (btnDownloadTemplate) {
+    btnDownloadTemplate.addEventListener("click", () => {
+      downloadCsvTemplate();
+      toast.success("CSV-Mustervorlage heruntergeladen! 📄");
+    });
+  }
+
+  if (fileDropzone && fileInputWishes) {
+    fileDropzone.addEventListener("click", () => fileInputWishes.click());
+
+    fileDropzone.addEventListener("dragover", (e) => {
       e.preventDefault();
-      const listTitle = settingsForm.querySelector("#setting-title").value.trim();
-      const listSubtitle = settingsForm.querySelector("#setting-subtitle").value.trim();
-      const adminPin = settingsForm.querySelector("#setting-admin-pin").value.trim();
+      fileDropzone.classList.add("dragover");
+    });
 
-      state.updateSettings({ listTitle, listSubtitle, adminPin });
-      toast.success("Einstellungen wurden gespeichert!");
+    fileDropzone.addEventListener("dragleave", () => {
+      fileDropzone.classList.remove("dragover");
+    });
+
+    fileDropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      fileDropzone.classList.remove("dragover");
+      if (e.dataTransfer.files.length > 0) {
+        processImportFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    fileInputWishes.addEventListener("change", (e) => {
+      if (e.target.files.length > 0) {
+        processImportFile(e.target.files[0]);
+      }
+    });
+  }
+
+  function processImportFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target.result;
+      try {
+        if (file.name.endsWith(".json")) {
+          const parsed = JSON.parse(content);
+          parsedImportWishes = Array.isArray(parsed) ? parsed : (parsed.wishes || []);
+        } else {
+          // CSV Datei
+          parsedImportWishes = parseWishesFromCsv(content);
+        }
+
+        renderImportPreview(parsedImportWishes, file.name);
+      } catch (err) {
+        toast.error("Fehler beim Lesen der Datei: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function renderImportPreview(wishes, filename) {
+    if (!wishes || wishes.length === 0) {
+      toast.error("Keine Wünsche in der Datei gefunden.");
+      return;
+    }
+
+    modalOverlay.querySelector("#import-preview-title").textContent = `Vorschau: ${wishes.length} Geschenke aus "${filename}"`;
+    importPreviewTbody.innerHTML = wishes.slice(0, 10).map((w, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td><strong>${escapeHtml(w.title)}</strong></td>
+        <td>${w.shopName ? escapeHtml(w.shopName) : '—'}</td>
+        <td>${formatCurrency(w.price)}</td>
+        <td>${escapeHtml(w.category || 'Allgemein')}</td>
+        <td>${w.priority === 'high' ? '⭐ Hoch' : (w.priority === 'low' ? 'Niedrig' : 'Normal')}</td>
+      </tr>
+    `).join("") + (wishes.length > 10 ? `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">... und ${wishes.length - 10} weitere Wünsche</td></tr>` : "");
+
+    importPreviewBox.style.display = "block";
+  }
+
+  if (btnCancelPreview) {
+    btnCancelPreview.addEventListener("click", () => {
+      parsedImportWishes = [];
+      importPreviewBox.style.display = "none";
+      if (fileInputWishes) fileInputWishes.value = "";
+    });
+  }
+
+  if (btnExecuteImport) {
+    btnExecuteImport.addEventListener("click", async () => {
+      if (parsedImportWishes.length === 0) return;
+      const targetEventId = modalOverlay.querySelector("#import-target-event").value;
+      const modeRadio = modalOverlay.querySelector("input[name='importMode']:checked");
+      const mode = modeRadio ? modeRadio.value : "append";
+
+      await state.importWishes(parsedImportWishes, mode, targetEventId);
+      toast.success(`${parsedImportWishes.length} Geschenke erfolgreich importiert! 🎉`);
+      state.setActiveEvent(targetEventId);
       state.closeModal();
     });
   }
 
-  // Backup Export
+  // ==========================================
+  // BACKUP & PIN SETTINGS
+  // ==========================================
+  const formPin = modalOverlay.querySelector("#form-admin-pin-settings");
+  if (formPin) {
+    formPin.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const pin = modalOverlay.querySelector("#setting-admin-pin").value.trim();
+      state.updateSettings({ adminPin: pin });
+      toast.success("Admin-PIN erfolgreich geändert!");
+    });
+  }
+
   const btnExport = modalOverlay.querySelector("#btn-export-backup");
   if (btnExport) {
     btnExport.addEventListener("click", async () => {
-      await storage.exportData();
-      toast.success("Backup-Datei heruntergeladen!");
+      await storage.exportAllData();
+      toast.success("Backup aller Veranstaltungen heruntergeladen!");
     });
   }
 
-  // Backup Import
-  const btnTriggerImport = modalOverlay.querySelector("#btn-trigger-import");
-  const fileInput = modalOverlay.querySelector("#file-import-input");
-  if (btnTriggerImport && fileInput) {
-    btnTriggerImport.addEventListener("click", () => fileInput.click());
-    fileInput.addEventListener("change", async (e) => {
+  const btnTriggerBackup = modalOverlay.querySelector("#btn-trigger-import-backup");
+  const fileBackupInput = modalOverlay.querySelector("#file-import-backup");
+  if (btnTriggerBackup && fileBackupInput) {
+    btnTriggerBackup.addEventListener("click", () => fileBackupInput.click());
+    fileBackupInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = async (event) => {
-        const result = await storage.importData(event.target.result);
+        const result = await storage.importAllData(event.target.result);
         if (result.success) {
           await state.init();
-          toast.success(`${result.count} Wünsche erfolgreich importiert!`);
+          toast.success(`${result.count} Veranstaltungen erfolgreich wiederhergestellt!`);
           state.closeModal();
         } else {
           toast.error(result.error);
@@ -422,14 +768,13 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
     });
   }
 
-  // Reset to Defaults
   const btnReset = modalOverlay.querySelector("#btn-reset-defaults");
   if (btnReset) {
     btnReset.addEventListener("click", async () => {
-      if (confirm("Möchtest du wirklich alle Wünsche auf die Beispiel-Liste zurücksetzen? Alle individuellen Einträge gehen dabei verloren.")) {
+      if (confirm("Möchtest du wirklich alles auf die Standard-Veranstaltungen zurücksetzen?")) {
         storage.resetToDefaults();
         await state.init();
-        toast.info("Wunschliste auf Standardwerte zurückgesetzt.");
+        toast.info("Auf Standard-Veranstaltungen zurückgesetzt.");
         state.closeModal();
       }
     });

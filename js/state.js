@@ -1,24 +1,32 @@
 /**
- * Reaktives State-Management für die Wunschliste
+ * Reaktives State-Management mit Multi-Event & Deep-Linking Unterstützung
  */
 
 import { storage } from "./storage.js";
+import { generateId } from "./utils/helpers.js";
 
 class StateStore {
   constructor() {
-    this.wishes = [];
+    this.events = [];
+    this.activeEventId = "";
     this.settings = storage.loadSettings();
     this.filters = {
       search: "",
-      status: "all", // 'all' | 'available' | 'reserved' | 'bought'
+      status: "all",
       category: "Alle",
-      sortBy: "priority" // 'priority' | 'price-asc' | 'price-desc' | 'newest'
+      sortBy: "priority"
     };
     this.isAdmin = sessionStorage.getItem("wunschliste_admin_active") === "true";
     this.activeModal = null;
     this.selectedWish = null;
+    this.modalExtraData = null;
     this.listeners = new Set();
     this.isLoading = true;
+
+    // Listen auf Hash-Änderungen in der URL (Deep-Linking z. B. #weihnachten-2026)
+    window.addEventListener("hashchange", () => {
+      this.handleUrlHash();
+    });
   }
 
   subscribe(listener) {
@@ -40,14 +48,67 @@ class StateStore {
     this.isLoading = true;
     this.notify();
     try {
-      this.wishes = await storage.loadWishes();
+      this.events = await storage.loadEvents();
       this.settings = storage.loadSettings();
+      this.handleUrlHash();
     } catch (err) {
-      console.error("Fehler beim Initialisieren der Wünsche:", err);
+      console.error("Fehler beim Initialisieren des States:", err);
     } finally {
       this.isLoading = false;
       this.notify();
     }
+  }
+
+  /**
+   * Liest Event aus Hash (#event-id) oder Query Param (?event=...)
+   */
+  handleUrlHash() {
+    const rawHash = window.location.hash.replace(/^#/, "").trim();
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetSlug = rawHash || urlParams.get("event");
+
+    if (targetSlug && this.events.length > 0) {
+      const match = this.events.find(e => e.slug === targetSlug || e.id === targetSlug);
+      if (match) {
+        this.activeEventId = match.id;
+        this.notify();
+        return;
+      }
+    }
+
+    // Fallback auf das erste nicht archivierte Event oder erstes Event
+    if (this.events.length > 0 && !this.activeEventId) {
+      const firstActive = this.events.find(e => !e.isArchived) || this.events[0];
+      this.activeEventId = firstActive.id;
+    }
+    this.notify();
+  }
+
+  /**
+   * Aktuelle Veranstaltung wechseln & URL Hash aktualisieren
+   */
+  setActiveEvent(eventId) {
+    const event = this.events.find(e => e.id === eventId || e.slug === eventId);
+    if (event) {
+      this.activeEventId = event.id;
+      // Aktualisiere URL ohne Neuladen
+      if (history.replaceState) {
+        history.replaceState(null, null, `#${event.slug || event.id}`);
+      } else {
+        window.location.hash = event.slug || event.id;
+      }
+      this.resetFilters();
+      this.notify();
+    }
+  }
+
+  getActiveEvent() {
+    return this.events.find(e => e.id === this.activeEventId) || this.events[0] || null;
+  }
+
+  getWishes() {
+    const active = this.getActiveEvent();
+    return active ? (active.wishes || []) : [];
   }
 
   // --- Filter & Sortierung ---
@@ -81,19 +142,16 @@ class StateStore {
     this.notify();
   }
 
-  // --- Gefilterte & Sortierte Wünsche abrufen ---
   getFilteredWishes() {
-    return this.wishes
+    const wishes = this.getWishes();
+    return wishes
       .filter(wish => {
-        // Status Filter
         if (this.filters.status === "available" && wish.status !== "available") return false;
         if (this.filters.status === "reserved" && wish.status !== "reserved") return false;
         if (this.filters.status === "bought" && wish.status !== "bought") return false;
 
-        // Kategorie Filter
         if (this.filters.category !== "Alle" && wish.category !== this.filters.category) return false;
 
-        // Suchtext Filter (Titel, Beschreibung, Notiz, Shop)
         if (this.filters.search) {
           const q = this.filters.search.toLowerCase();
           const matchTitle = (wish.title || "").toLowerCase().includes(q);
@@ -111,7 +169,6 @@ class StateStore {
           const pA = priorityScore[a.priority] || 2;
           const pB = priorityScore[b.priority] || 2;
           if (pB !== pA) return pB - pA;
-          // Sekundär: Verfügbare zuerst
           if (a.status === "available" && b.status !== "available") return -1;
           if (b.status === "available" && a.status !== "available") return 1;
           return 0;
@@ -129,12 +186,12 @@ class StateStore {
       });
   }
 
-  // --- Statistiken ---
   getStats() {
-    const total = this.wishes.length;
-    const available = this.wishes.filter(w => w.status === "available").length;
-    const reserved = this.wishes.filter(w => w.status === "reserved").length;
-    const bought = this.wishes.filter(w => w.status === "bought").length;
+    const wishes = this.getWishes();
+    const total = wishes.length;
+    const available = wishes.filter(w => w.status === "available").length;
+    const reserved = wishes.filter(w => w.status === "reserved").length;
+    const bought = wishes.filter(w => w.status === "bought").length;
     return { total, available, reserved, bought };
   }
 
@@ -156,21 +213,55 @@ class StateStore {
   }
 
   // --- Modals Steuerung ---
-  openModal(modalName, wish = null) {
+  openModal(modalName, wish = null, extraData = null) {
     this.activeModal = modalName;
     this.selectedWish = wish;
+    this.modalExtraData = extraData;
     this.notify();
   }
 
   closeModal() {
     this.activeModal = null;
     this.selectedWish = null;
+    this.modalExtraData = null;
+    this.notify();
+  }
+
+  // --- Veranstaltungen manipulieren ---
+  async saveEvent(eventData) {
+    const slug = eventData.slug || eventData.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const payload = {
+      id: eventData.id || generateId("event"),
+      slug: slug || "event",
+      title: eventData.title.trim(),
+      subtitle: eventData.subtitle ? eventData.subtitle.trim() : "",
+      date: eventData.date || "",
+      icon: eventData.icon || "🎁",
+      isArchived: Boolean(eventData.isArchived)
+    };
+
+    this.events = await storage.saveEvent(payload);
+    if (!this.activeEventId) {
+      this.activeEventId = payload.id;
+    }
+    this.notify();
+    return payload;
+  }
+
+  async deleteEvent(eventId) {
+    this.events = await storage.deleteEvent(eventId);
+    if (this.activeEventId === eventId) {
+      this.activeEventId = this.events[0] ? this.events[0].id : "";
+    }
     this.notify();
   }
 
   // --- Wünsche manipulieren ---
   async reserveWish(wishId, userName, note = "", pin = "", asBought = false) {
-    const target = this.wishes.find(w => w.id === wishId);
+    const active = this.getActiveEvent();
+    if (!active) return false;
+
+    const target = (active.wishes || []).find(w => w.id === wishId);
     if (!target) return false;
 
     const updated = {
@@ -183,25 +274,25 @@ class StateStore {
     };
 
     storage.setSavedUserName(userName);
-    this.wishes = await storage.updateWish(updated);
+    this.events = await storage.updateWish(active.id, updated);
     this.notify();
     return true;
   }
 
   async cancelReservation(wishId, pinOrAdmin = "") {
-    const target = this.wishes.find(w => w.id === wishId);
+    const active = this.getActiveEvent();
+    if (!active) return false;
+
+    const target = (active.wishes || []).find(w => w.id === wishId);
     if (!target) return false;
 
-    // Erlaubt wenn Admin aktiv oder kein PIN gesetzt oder PIN stimmt überein
     const isAllowed =
       this.isAdmin ||
       !target.reservePin ||
       target.reservePin === pinOrAdmin ||
       pinOrAdmin === this.settings.adminPin;
 
-    if (!isAllowed) {
-      return false;
-    }
+    if (!isAllowed) return false;
 
     const updated = {
       ...target,
@@ -212,22 +303,30 @@ class StateStore {
       reservePin: ""
     };
 
-    this.wishes = await storage.updateWish(updated);
+    this.events = await storage.updateWish(active.id, updated);
     this.notify();
     return true;
   }
 
-  async saveWish(wishData) {
+  async saveWish(wishData, targetEventId = null) {
+    const eventId = targetEventId || this.activeEventId;
     if (wishData.id) {
-      this.wishes = await storage.updateWish(wishData);
+      this.events = await storage.updateWish(eventId, wishData);
     } else {
-      this.wishes = await storage.addWish(wishData);
+      this.events = await storage.addWish(eventId, wishData);
     }
     this.notify();
   }
 
-  async deleteWish(wishId) {
-    this.wishes = await storage.deleteWish(wishId);
+  async deleteWish(wishId, targetEventId = null) {
+    const eventId = targetEventId || this.activeEventId;
+    this.events = await storage.deleteWish(eventId, wishId);
+    this.notify();
+  }
+
+  async importWishes(wishes, mode = "append", targetEventId = null) {
+    const eventId = targetEventId || this.activeEventId;
+    this.events = await storage.importWishesToEvent(eventId, wishes, mode);
     this.notify();
   }
 
