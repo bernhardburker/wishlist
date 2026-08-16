@@ -44,11 +44,12 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
                 type="password"
                 id="admin-pin-input"
                 class="form-input"
-                placeholder="4-stellige Admin-PIN eingeben"
+                placeholder="Admin-PIN eingeben (Standard: 1234)"
+                maxlength="32"
                 required
                 autofocus
               />
-              <span class="form-hint">Zugriff nur für berechtigte Listen-Verwalter.</span>
+              <span class="form-hint">Zugriff nur für berechtigte Listen-Verwalter (z. B. 4–8 Zeichen).</span>
             </div>
             <div class="modal-actions">
               <button type="button" class="btn btn-ghost btn-cancel-modal">Abbrechen</button>
@@ -418,35 +419,50 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
         <!-- TAB 4: BACKUP & EINSTELLUNGEN -->
         <div id="tab-settings" class="tab-content">
           <div class="backup-section">
-            <h4>🔑 Admin-Sicherheit</h4>
-            <p class="form-hint">Ändere hier deine Admin-PIN. Sobald gespeichert, ist die alte PIN sofort ungültig.</p>
+            <h4>🔑 Admin-Sicherheit &amp; PIN</h4>
+            <p class="form-hint">Hier siehst du deine aktuelle Admin-PIN und kannst sie jederzeit neu festlegen (4–8 oder mehr Stellen).</p>
+
+            <div class="current-pin-info-box" style="margin-bottom: 1.25rem; padding: 0.85rem 1rem; background: var(--bg-surface-alt, #f8fafc); border: 1px solid var(--border-default, #e2e8f0); border-radius: var(--radius-md, 8px);">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+                <div>
+                  <span style="font-size:0.85rem; color:var(--text-secondary); display:block;">Momentan gespeicherte Admin-PIN:</span>
+                  <span id="active-pin-display" style="font-weight:700; font-family:monospace; font-size:1.15rem; letter-spacing:3px;">••••</span>
+                </div>
+                <button type="button" id="btn-reveal-current-pin" class="btn btn-outline btn-sm" style="padding:0.3rem 0.75rem; font-size:0.85rem;">
+                  👁️ PIN anzeigen
+                </button>
+              </div>
+            </div>
+
             <form id="form-admin-pin-settings" style="margin-bottom: 1.5rem;">
               <div class="form-group">
-                <label for="setting-current-pin" class="form-label required-label">Bisherige Admin-PIN:</label>
+                <label for="setting-current-pin" class="form-label">Bisherige Admin-PIN:</label>
                 <input
                   type="password"
                   id="setting-current-pin"
                   class="form-input"
-                  placeholder="Aktuelle PIN zur Bestätigung"
-                  required
+                  placeholder="Bisherige PIN (Standard: 1234, leer lassen für auto)"
+                  maxlength="32"
                 />
+                <span class="form-hint">Kann leer gelassen werden – die aktive Admin-Sitzung wird automatisch verwendet.</span>
               </div>
               <div class="form-group">
-                <label for="setting-new-pin" class="form-label required-label">Neue Admin-PIN:</label>
+                <label for="setting-new-pin" class="form-label required-label">Neue Admin-PIN (4–8 Stellen):</label>
                 <div class="input-with-action">
                   <input
                     type="password"
                     id="setting-new-pin"
                     class="form-input"
-                    placeholder="Neue 4-stellige PIN"
+                    placeholder="Neue PIN eingeben (z. B. 87654321)"
                     minlength="4"
+                    maxlength="32"
                     required
                   />
                   <button type="button" id="btn-toggle-setting-pin" class="btn-input-action" title="PIN anzeigen/verbergen">
                     👁️
                   </button>
                 </div>
-                <span class="form-hint">Mit der neuen PIN entsperrst du diesen Verwaltungsbereich.</span>
+                <span class="form-hint">Empfohlen: 4 bis 8 Ziffern oder Zeichen.</span>
               </div>
               <button type="submit" class="btn btn-sm btn-primary">Neue PIN speichern</button>
             </form>
@@ -784,6 +800,30 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
   const togglePinBtn = modalOverlay.querySelector("#btn-toggle-setting-pin");
   const currentPinInput = modalOverlay.querySelector("#setting-current-pin");
   const newPinInput = modalOverlay.querySelector("#setting-new-pin");
+  const activePinDisplay = modalOverlay.querySelector("#active-pin-display");
+  const btnRevealCurrentPin = modalOverlay.querySelector("#btn-reveal-current-pin");
+  let isCurrentPinRevealed = false;
+
+  const updateActivePinDisplay = () => {
+    if (!activePinDisplay) return;
+    const pin = storage.getAdminPin() || "1234";
+    if (isCurrentPinRevealed) {
+      activePinDisplay.textContent = pin;
+      if (btnRevealCurrentPin) btnRevealCurrentPin.textContent = "🙈 PIN verbergen";
+    } else {
+      activePinDisplay.textContent = "•".repeat(pin.length || 4);
+      if (btnRevealCurrentPin) btnRevealCurrentPin.textContent = "👁️ PIN anzeigen";
+    }
+  };
+
+  if (btnRevealCurrentPin) {
+    btnRevealCurrentPin.addEventListener("click", () => {
+      isCurrentPinRevealed = !isCurrentPinRevealed;
+      updateActivePinDisplay();
+    });
+  }
+
+  updateActivePinDisplay();
 
   if (togglePinBtn && newPinInput) {
     togglePinBtn.addEventListener("click", () => {
@@ -803,8 +843,8 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
       const currentPin = (currentPinInput ? currentPinInput.value : "").trim() || storage.getAdminPin();
       const newPin = newPinInput.value.trim();
 
-      if (!newPin || newPin.length < 4) {
-        toast.error("Die neue PIN muss mindestens 4 Zeichen lang sein.");
+      if (!newPin || newPin.length < 4 || newPin.length > 32) {
+        toast.error("Die neue PIN muss zwischen 4 und 32 Zeichen lang sein.");
         return;
       }
 
@@ -817,6 +857,7 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
         toast.success("Admin-PIN erfolgreich geändert! Die alte PIN ist ab sofort ungültig.");
         if (currentPinInput) currentPinInput.value = "";
         if (newPinInput) newPinInput.value = "";
+        updateActivePinDisplay();
       } catch (err) {
         toast.error(`Fehler beim Ändern der PIN: ${err.message}`);
       } finally {

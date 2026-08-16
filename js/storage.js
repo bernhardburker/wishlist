@@ -469,8 +469,8 @@ export class StorageService {
     const cleanOld = (oldPin || this.getAdminPin()).trim();
     const cleanNew = (newPin || "").trim();
 
-    if (!cleanNew || cleanNew.length < 4) {
-      throw new Error("Die neue PIN muss mindestens 4 Zeichen lang sein.");
+    if (!cleanNew || cleanNew.length < 4 || cleanNew.length > 64) {
+      throw new Error("Die neue PIN muss zwischen 4 und 64 Zeichen lang sein.");
     }
 
     const baseUrl = this.getApiBaseUrl();
@@ -487,6 +487,11 @@ export class StorageService {
       });
 
       if (!res.ok) {
+        // Fallback for static hosting (e.g. GitHub Pages) where POST /api/... returns 404 / 405
+        if (res.status === 404 || res.status === 405) {
+          this.setAdminPin(cleanNew);
+          return { success: true, offline: true };
+        }
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || `HTTP ${res.status}`);
       }
@@ -495,7 +500,14 @@ export class StorageService {
       this.setAdminPin(cleanNew);
       return { success: true };
     } catch (e) {
-      if (e.message && (e.message.includes("Failed to fetch") || e.message.includes("NetworkError"))) {
+      if (
+        e.message && (
+          e.message.includes("Failed to fetch") ||
+          e.message.includes("NetworkError") ||
+          e.message.includes("Load failed") ||
+          e.name === "TypeError"
+        )
+      ) {
         // Offline-Fallback
         this.setAdminPin(cleanNew);
         return { success: true, offline: true };

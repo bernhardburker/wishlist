@@ -194,8 +194,8 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(401, {"error": "Bisherige Admin-PIN ist nicht korrekt."})
                 return
 
-            if not new_pin or len(new_pin) < 4:
-                self.send_json(400, {"error": "Die neue PIN muss mindestens 4 Zeichen lang sein."})
+            if not new_pin or len(new_pin) < 4 or len(new_pin) > 64:
+                self.send_json(400, {"error": "Die neue PIN muss zwischen 4 und 64 Zeichen lang sein."})
                 return
 
             settings = load_settings_from_disk()

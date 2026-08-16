@@ -38,10 +38,10 @@ export function renderCancelModal(container, wish) {
               <input
                 type="password"
                 inputmode="numeric"
-                maxlength="4"
+                maxlength="8"
                 id="input-cancel-pin"
                 class="form-input"
-                placeholder="4-stelliger PIN"
+                placeholder="4–8 stelliger PIN"
                 required
                 autofocus
               />

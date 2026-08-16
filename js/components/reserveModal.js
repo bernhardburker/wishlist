@@ -80,14 +80,14 @@ export function renderReserveModal(container, wish) {
           </div>
 
           <div class="form-group">
-            <label for="input-reserve-pin" class="form-label">Storno-PIN (optional, 4 Ziffern):</label>
+            <label for="input-reserve-pin" class="form-label">Storno-PIN (optional, 4–8 Ziffern):</label>
             <input
               type="password"
               inputmode="numeric"
-              maxlength="4"
+              maxlength="8"
               id="input-reserve-pin"
               class="form-input"
-              placeholder="z. B. 5821"
+              placeholder="z. B. 58219412"
             />
             <span class="form-hint">Falls du deine Reservierung später selbst wieder freigeben möchtest.</span>
           </div>

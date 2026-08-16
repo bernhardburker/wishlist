@@ -1,34 +1,65 @@
 /**
- * Responsive Anpassungen & Mobile Optimierung
+ * Responsive Anpassungen & Mobile Optimierung für Wunschliste
  */
 
 @media (max-width: 768px) {
   .app-header {
-    padding: 1rem 1rem 1.75rem 1rem;
-    margin-bottom: 1.25rem;
+    padding: 1.25rem 1rem 2rem 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .main-container {
+    padding: 0 1rem 3rem 1rem;
   }
 
   .header-top-bar {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
   }
 
-  .hero-title {
-    font-size: 1.75rem;
+  .brand-badge {
+    justify-content: center;
   }
 
-  .hero-subtitle {
-    font-size: 0.95rem;
+  .header-actions {
+    justify-content: center;
+    gap: 0.5rem;
   }
 
-  .stats-overview {
+  .header-hero {
+    gap: 0.5rem;
+  }
+
+  .hero-icon-large {
+    width: 56px;
+    height: 56px;
+    font-size: 1.85rem;
+  }
+
+  .header-title {
+    font-size: 1.65rem;
+  }
+
+  .header-subtitle {
+    font-size: 0.925rem;
+  }
+
+  .stats-bar {
     gap: 0.5rem;
     width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stat-divider {
+    display: none;
   }
 
   .stat-card {
-    flex: 1;
-    min-width: 90px;
-    padding: 0.6rem 0.5rem;
+    min-width: 0;
+    padding: 0.65rem 0.5rem;
   }
 
   .stat-value {
@@ -39,15 +70,21 @@
     font-size: 0.65rem;
   }
 
+  .progress-container {
+    margin-top: 1rem;
+  }
+
   /* Filter Bar Mobile */
   .filter-bar-wrapper {
     padding: 1rem;
-    gap: 0.75rem;
+    gap: 0.85rem;
+    margin-bottom: 1.5rem;
   }
 
   .filter-main-row {
     flex-direction: column;
     align-items: stretch;
+    gap: 0.75rem;
   }
 
   .search-input-box {
@@ -56,15 +93,21 @@
 
   .status-pills-group {
     overflow-x: auto;
-    padding-bottom: 0.25rem;
+    padding-bottom: 0.35rem;
     -webkit-overflow-scrolling: touch;
     flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+
+  .status-pills-group::-webkit-scrollbar {
+    display: none;
   }
 
   .status-pill {
     white-space: nowrap;
     padding: 0.45rem 0.75rem;
     font-size: 0.8rem;
+    flex-shrink: 0;
   }
 
   .filter-secondary-row {
@@ -76,6 +119,7 @@
   .selects-group {
     flex-direction: column;
     align-items: stretch;
+    gap: 0.75rem;
   }
 
   .select-wrapper {
@@ -85,6 +129,7 @@
 
   .custom-select {
     flex: 1;
+    width: 100%;
   }
 
   /* Cards Mobile */
@@ -99,13 +144,22 @@
 
   /* Modals Mobile */
   .modal-overlay {
-    padding: 0.75rem;
+    padding: 0.5rem;
     align-items: flex-end;
   }
 
   .modal-card {
-    max-height: 85vh;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 88vh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+
+  .modal-header {
+    padding: 1rem 1.25rem;
+  }
+
+  .modal-body {
+    padding: 1.25rem;
+    gap: 1rem;
   }
 
   .form-row-grid {
@@ -114,6 +168,11 @@
 
   .radio-options-grid {
     grid-template-columns: 1fr;
+  }
+
+  .import-header-card {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .toast-container {
@@ -127,5 +186,33 @@
 @media (min-width: 769px) and (max-width: 1024px) {
   .gift-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .stats-bar {
+    gap: 0.65rem;
+  }
+
+  .stat-card {
+    min-width: 110px;
+    padding: 0.65rem 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+  }
+
+  .event-select-dropdown {
+    width: 100%;
+  }
+
+  .event-switcher-wrapper {
+    width: 100%;
   }
 }

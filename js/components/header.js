@@ -75,12 +75,11 @@ export function renderHeader(container) {
             <span>📋 Link teilen</span>
           </button>
 
-          <button id="btn-server-status" class="action-pill-btn server-online" title="Verbunden mit Burkerserver (Klicke für Status)">
-            <span class="status-dot"></span>
-            <span class="btn-text">🖥️ Burkerserver</span>
-          </button>
-
           ${state.isAdmin ? `
+            <button id="btn-server-status" class="action-pill-btn server-online" title="Verbunden mit Burkerserver (Klicke für Status)">
+              <span class="status-dot"></span>
+              <span class="btn-text">🖥️ Burkerserver</span>
+            </button>
             <button id="btn-add-wish-header" class="btn btn-primary btn-sm">
               <span>+ Wunsch anlegen</span>
             </button>

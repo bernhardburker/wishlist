@@ -138,6 +138,11 @@ def test_server_and_routes():
         with open(events_file, "r", encoding="utf-8") as f:
             events_backup = f.read()
 
+    # Bypass proxy for test localhost connections
+    proxy_handler = urllib.request.ProxyHandler({})
+    opener = urllib.request.build_opener(proxy_handler)
+    urllib.request.install_opener(opener)
+
     server = TestServer()
     server.daemon = True
     server.start()
@@ -175,7 +180,7 @@ def test_server_and_routes():
                 log_fail(f"Fehler bei {url}: {e}")
                 all_ok = False
 
-        # Test POST /api/reserve
+        # Test POST /api/reserve with 8-digit PIN
         try:
             reserve_data = json.dumps({
                 "eventId": "geburtstag-2026",
@@ -183,7 +188,7 @@ def test_server_and_routes():
                 "action": "reserve",
                 "name": "Test Gast",
                 "note": "Freue mich",
-                "pin": "9999"
+                "pin": "87654321"
             }).encode("utf-8")
             req = urllib.request.Request(
                 f"http://localhost:{PORT}/api/reserve",
@@ -194,7 +199,7 @@ def test_server_and_routes():
                 if res.status == 200:
                     resp_json = json.loads(res.read().decode("utf-8"))
                     if resp_json.get("success"):
-                        log_pass("POST /api/reserve: Reservierungs-API funktioniert einwandfrei")
+                        log_pass("POST /api/reserve: Reservierungs-API mit 8-stelligem PIN funktioniert einwandfrei")
                     else:
                         log_fail(f"POST /api/reserve antwortete ohne Erfolg: {resp_json}")
                         all_ok = False
@@ -259,9 +264,9 @@ def test_server_and_routes():
             log_fail(f"Fehler bei POST /api/events: {e}")
             all_ok = False
 
-        # Test POST /api/admin/change-pin
+        # Test POST /api/admin/change-pin to 8-digit PIN (87654321)
         try:
-            change_data = json.dumps({"oldPin": "1234", "newPin": "5678"}).encode("utf-8")
+            change_data = json.dumps({"oldPin": "1234", "newPin": "87654321"}).encode("utf-8")
             req = urllib.request.Request(
                 f"http://localhost:{PORT}/api/admin/change-pin",
                 data=change_data,
@@ -271,7 +276,7 @@ def test_server_and_routes():
                 if res.status == 200:
                     resp_json = json.loads(res.read().decode("utf-8"))
                     if resp_json.get("success"):
-                        log_pass("POST /api/admin/change-pin: PIN erfolgreich auf 5678 geändert")
+                        log_pass("POST /api/admin/change-pin: PIN erfolgreich auf 8 Stellen (87654321) geändert")
                     else:
                         log_fail(f"POST /api/admin/change-pin: Fehlerhafte Antwort: {resp_json}")
                         all_ok = False
@@ -291,8 +296,8 @@ def test_server_and_routes():
                     log_fail("Sicherheitsfehler: Alte PIN 1234 wird immer noch akzeptiert!")
                     all_ok = False
 
-            # Verify that new PIN 5678 is ACCEPTED
-            verify_new = json.dumps({"pin": "5678"}).encode("utf-8")
+            # Verify that new 8-digit PIN 87654321 is ACCEPTED
+            verify_new = json.dumps({"pin": "87654321"}).encode("utf-8")
             req_new = urllib.request.Request(
                 f"http://localhost:{PORT}/api/admin/verify",
                 data=verify_new,
@@ -301,17 +306,17 @@ def test_server_and_routes():
             with urllib.request.urlopen(req_new) as res:
                 resp_json = json.loads(res.read().decode("utf-8"))
                 if resp_json.get("valid") is True:
-                    log_pass("Sicherheit: Neue PIN 5678 wird erfolgreich akzeptiert")
+                    log_pass("Sicherheit: Neue 8-stellige PIN 87654321 wird erfolgreich akzeptiert")
                 else:
-                    log_fail("Fehler: Neue PIN 5678 wird nicht akzeptiert!")
+                    log_fail("Fehler: Neue 8-stellige PIN 87654321 wird nicht akzeptiert!")
                     all_ok = False
 
             # Change back to 1234 for test cleanup
-            change_back = json.dumps({"oldPin": "5678", "newPin": "1234"}).encode("utf-8")
+            change_back = json.dumps({"oldPin": "87654321", "newPin": "1234"}).encode("utf-8")
             req_back = urllib.request.Request(
                 f"http://localhost:{PORT}/api/admin/change-pin",
                 data=change_back,
-                headers={"Content-Type": "application/json", "X-Admin-Pin": "5678"}
+                headers={"Content-Type": "application/json", "X-Admin-Pin": "87654321"}
             )
             with urllib.request.urlopen(req_back) as res:
                 pass
