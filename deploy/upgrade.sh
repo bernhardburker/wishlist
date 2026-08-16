@@ -30,12 +30,14 @@ fi
 
 # 3. Systemd Service prüfen und neu starten
 if command -v systemctl >/dev/null 2>&1; then
-    if [ -f "/etc/systemd/system/wunschliste.service" ]; then
+    if systemctl --user is-active --quiet wunschliste.service 2>/dev/null || [ -f "$HOME/.config/systemd/user/wunschliste.service" ]; then
+        echo "🔄 Starte user-systemd Dienst 'wunschliste' neu..."
+        systemctl --user restart wunschliste
+    elif [ -f "/etc/systemd/system/wunschliste.service" ]; then
         echo "🔄 Starte systemd Dienst 'wunschliste' neu..."
         sudo systemctl restart wunschliste
     else
-        echo "ℹ️ Systemd Dienst /etc/systemd/system/wunschliste.service noch nicht eingerichtet."
-        echo "   Führe aus: sudo cp deploy/wunschliste.service /etc/systemd/system/ && sudo systemctl enable --now wunschliste"
+        echo "ℹ️ Systemd Dienst noch nicht registriert."
     fi
 fi
 
