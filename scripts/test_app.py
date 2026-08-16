@@ -13,6 +13,8 @@ import socketserver
 import http.server
 import threading
 import time
+import shutil
+import tempfile
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -202,12 +204,36 @@ def test_server_and_routes():
     cwd = os.getcwd()
     os.chdir(PROJECT_ROOT)
 
-    # Backup data/events.json during test execution
-    events_backup = None
-    events_file = os.path.join(PROJECT_ROOT, "data", "events.json")
-    if os.path.exists(events_file):
-        with open(events_file, "r", encoding="utf-8") as f:
-            events_backup = f.read()
+    # Isolated temporary data directory for server tests (production data is never modified)
+    temp_data_dir = tempfile.mkdtemp(prefix="wunschliste_app_test_")
+    os.environ["WUNSCHLISTE_DATA_DIR"] = temp_data_dir
+
+    sample_test_events = [
+        {
+            "id": "test-event-ci",
+            "slug": "test-event-ci",
+            "title": "CI Test Event 🎁",
+            "subtitle": "Test Event",
+            "date": "2026-10-10",
+            "icon": "🎁",
+            "isArchived": False,
+            "wishes": [
+                {
+                    "id": "wish-ci-1",
+                    "title": "CI Test Geschenk",
+                    "url": "https://example.com/item",
+                    "price": 25.00,
+                    "category": "Spielzeug",
+                    "priority": "medium",
+                    "status": "available",
+                    "reservedBy": "",
+                    "reservePin": ""
+                }
+            ]
+        }
+    ]
+    with open(os.path.join(temp_data_dir, "events.json"), "w", encoding="utf-8") as f:
+        json.dump(sample_test_events, f, indent=2, ensure_ascii=False)
 
     # Bypass proxy for test localhost connections
     proxy_handler = urllib.request.ProxyHandler({})
@@ -253,11 +279,20 @@ def test_server_and_routes():
 
         # Test POST /api/reserve (Reservieren, falscher PIN beim Stornieren, richtiger PIN beim Stornieren)
         try:
-            from server import load_events_from_disk
+            from server import load_events_from_disk, save_events_to_disk
             current_events = load_events_from_disk()
             if current_events and current_events[0].get("wishes"):
                 test_event_id = current_events[0]["id"]
-                test_wish_id = current_events[0]["wishes"][0]["id"]
+                avail_wishes = [w for w in current_events[0]["wishes"] if w.get("status") == "available"]
+                if avail_wishes:
+                    test_wish = avail_wishes[0]
+                else:
+                    test_wish = current_events[0]["wishes"][0]
+                    test_wish["status"] = "available"
+                    test_wish["reservedBy"] = ""
+                    test_wish["reservePin"] = ""
+                    save_events_to_disk(current_events)
+                test_wish_id = test_wish["id"]
 
                 # 1. Reservieren mit PIN
                 reserve_data = json.dumps({
@@ -479,12 +514,11 @@ def test_server_and_routes():
 
     finally:
         server.stop()
-        if events_backup is not None:
-            with open(events_file, "w", encoding="utf-8") as f:
-                f.write(events_backup)
-        settings_file = os.path.join(PROJECT_ROOT, "data", "settings.json")
-        if os.path.exists(settings_file):
-            os.remove(settings_file)
+        time.sleep(0.2)
+        if temp_data_dir and os.path.exists(temp_data_dir):
+            shutil.rmtree(temp_data_dir, ignore_errors=True)
+        if "WUNSCHLISTE_DATA_DIR" in os.environ:
+            del os.environ["WUNSCHLISTE_DATA_DIR"]
         os.chdir(cwd)
 
     return all_ok

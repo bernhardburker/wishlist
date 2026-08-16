@@ -9,6 +9,72 @@ import { detectShop } from "../utils/shopHelper.js";
 import { parseWishesFromCsv, downloadCsvTemplate } from "../utils/csvHelper.js";
 import { toast } from "./toast.js";
 
+let currentAdminTab = "events";
+
+export function renderShopRowHtml(shop = {}, index = 0, total = 1) {
+  const url = shop.url || "";
+  const detected = detectShop(url);
+  const name = shop.name || (url ? detected.name : "");
+  const price = (shop.price !== undefined && shop.price !== null && shop.price !== "") ? shop.price : "";
+  const isPrimary = index === 0;
+
+  return `
+    <div class="shop-link-row" data-index="${index}">
+      <div class="shop-link-header">
+        <span class="shop-link-title">
+          ${isPrimary ? "⭐ Hauptlink (Shop 1)" : `🔗 Alternativ-Shop ${index + 1}`}
+        </span>
+        <button type="button" class="btn-remove-shop" title="Diesen Link entfernen" ${total === 1 && !url ? 'style="display:none;"' : ''}>
+          🗑️ Entfernen
+        </button>
+      </div>
+
+      <div class="form-group shop-input-group">
+        <label class="form-label-sub">Webadresse (URL):</label>
+        <input
+          type="url"
+          class="form-input shop-url-input"
+          placeholder="https://www.smythstoys.com/... oder https://amazon.de/..."
+          value="${escapeHtml(url)}"
+        />
+      </div>
+
+      <div class="form-row-grid shop-details-grid">
+        <div class="form-group shop-input-group">
+          <label class="form-label-sub">Shop-Name:</label>
+          <input
+            type="text"
+            class="form-input shop-name-input"
+            placeholder="${url ? escapeHtml(detected.name) : 'z. B. Amazon, Smyths Toys'}"
+            value="${escapeHtml(name)}"
+          />
+        </div>
+        <div class="form-group shop-input-group">
+          <label class="form-label-sub">Preis bei diesem Shop (€):</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            class="form-input shop-price-input"
+            placeholder="optional"
+            value="${price}"
+          />
+        </div>
+      </div>
+
+      <div class="shop-row-status">
+        ${url ? `
+          <span class="badge badge-shop ${detected.badgeClass}">
+            ${detected.icon} <strong>${escapeHtml(detected.name)}</strong>
+          </span>
+        ` : `
+          <span class="form-hint">Shop wird anhand der URL automatisch erkannt</span>
+        `}
+      </div>
+    </div>
+  `;
+}
+
 export function renderAdminModal(container, modalType = "admin", editingWish = null) {
   const isAdmin = state.isAdmin;
   const isEditing = Boolean(editingWish);
@@ -21,6 +87,7 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
   const closeModal = () => {
     modalOverlay.classList.add("modal-leaving");
     setTimeout(() => {
+      currentAdminTab = "events";
       state.closeModal();
     }, 200);
   };
@@ -101,8 +168,7 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
   }
 
   // --- 2. ADMIN INTERFACE ---
-  let activeTab = "events";
-  if (modalType === "addWish" || modalType === "editWish") activeTab = "wish";
+  let activeTab = (modalType === "addWish" || modalType === "editWish") ? "wish" : currentAdminTab;
 
   const settings = state.settings;
   const wishData = editingWish || {
@@ -115,8 +181,36 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
     image: "",
     description: "",
     note: "",
-    shopName: ""
+    shopName: "",
+    shops: []
   };
+
+  let initialShops = [];
+  if (editingWish) {
+    if (Array.isArray(editingWish.shops) && editingWish.shops.length > 0) {
+      initialShops = editingWish.shops.map(s => ({
+        name: s.name || "",
+        url: s.url || "",
+        price: (s.price !== undefined && s.price !== null) ? s.price : ""
+      }));
+    } else if (editingWish.url) {
+      initialShops = [{
+        name: editingWish.shopName || "",
+        url: editingWish.url || "",
+        price: (editingWish.price !== undefined && editingWish.price !== null) ? editingWish.price : ""
+      }];
+      if (editingWish.alternativeUrl) {
+        initialShops.push({
+          name: editingWish.alternativeShopName || "",
+          url: editingWish.alternativeUrl,
+          price: (editingWish.alternativePrice !== undefined && editingWish.alternativePrice !== null) ? editingWish.alternativePrice : ""
+        });
+      }
+    }
+  }
+  if (initialShops.length === 0) {
+    initialShops = [{ name: "", url: "", price: "" }];
+  }
 
   modalOverlay.innerHTML = `
     <div class="modal-card modal-admin-dashboard" role="dialog">
@@ -256,18 +350,21 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
               />
             </div>
 
-            <div class="form-group">
-              <label for="wish-url" class="form-label">Shop-Link / URL:</label>
-              <input
-                type="url"
-                id="wish-url"
-                class="form-input"
-                placeholder="https://www.smythstoys.com/... oder https://amazon.de/..."
-                value="${escapeHtml(wishData.url)}"
-              />
-              <span id="shop-detected-hint" class="form-hint">
-                Füge einen Link von Amazon, Smyths Toys, Thalia etc. ein – der Shop wird automatisch erkannt.
-              </span>
+            <div class="shop-links-section">
+              <div class="shop-links-header">
+                <div class="shop-links-header-info">
+                  <label class="form-label" style="margin-bottom:0;">Shop-Links &amp; Bezugsquellen:</label>
+                  <span class="form-hint">Hinterlege einen oder mehrere Links (z. B. Amazon, Smyths Toys, etc.). Jeder Link kann einzeln bearbeitet werden.</span>
+                </div>
+              </div>
+
+              <div id="shop-links-list" class="shop-links-list">
+                ${initialShops.map((shop, idx) => renderShopRowHtml(shop, idx, initialShops.length)).join("")}
+              </div>
+
+              <button type="button" id="btn-add-shop-link" class="btn btn-outline btn-sm btn-add-shop-link">
+                <span>+ Weiteren Shop-Link hinzufügen</span>
+              </button>
             </div>
 
             <div class="form-row-grid">
@@ -426,7 +523,7 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
         </div>
 
         <!-- TAB 4: BACKUP & EINSTELLUNGEN -->
-        <div id="tab-settings" class="tab-content">
+        <div id="tab-settings" class="tab-content ${activeTab === 'settings' ? 'active' : ''}">
           <div class="backup-section">
             <h4>🔑 Admin-Sicherheit &amp; PIN</h4>
             <p class="form-hint">Hier siehst du deine aktuelle Admin-PIN und kannst sie jederzeit neu festlegen (4–8 oder mehr Stellen).</p>
@@ -524,6 +621,7 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
   tabBtns.forEach(btn => {
     btn.addEventListener("click", () => {
       const targetId = btn.getAttribute("data-tab");
+      currentAdminTab = targetId.replace("tab-", "");
       tabBtns.forEach(b => b.classList.remove("active"));
       tabContents.forEach(c => c.classList.remove("active"));
       btn.classList.add("active");
@@ -636,18 +734,105 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
   });
 
   // ==========================================
-  // WISH FORM HANDLERS
+  // WISH FORM HANDLERS (Multi-Shop Links)
   // ==========================================
-  const urlInput = modalOverlay.querySelector("#wish-url");
-  const shopHint = modalOverlay.querySelector("#shop-detected-hint");
-  if (urlInput && shopHint) {
-    urlInput.addEventListener("input", () => {
-      const detected = detectShop(urlInput.value.trim());
-      if (urlInput.value.trim()) {
-        shopHint.innerHTML = `Erkannter Shop: <strong>${detected.icon} ${escapeHtml(detected.name)}</strong>`;
-      } else {
-        shopHint.textContent = "Füge einen Link von Amazon, Smyths Toys etc. ein.";
+  const shopLinksList = modalOverlay.querySelector("#shop-links-list");
+  const btnAddShopLink = modalOverlay.querySelector("#btn-add-shop-link");
+
+  const updateShopRowIndices = () => {
+    if (!shopLinksList) return;
+    const rows = shopLinksList.querySelectorAll(".shop-link-row");
+    rows.forEach((row, idx) => {
+      row.dataset.index = idx;
+      const titleEl = row.querySelector(".shop-link-title");
+      if (titleEl) {
+        titleEl.textContent = idx === 0 ? "⭐ Hauptlink (Shop 1)" : `🔗 Alternativ-Shop ${idx + 1}`;
       }
+      const removeBtn = row.querySelector(".btn-remove-shop");
+      if (removeBtn) {
+        const urlInput = row.querySelector(".shop-url-input");
+        const hasUrl = urlInput && urlInput.value.trim() !== "";
+        if (rows.length === 1 && !hasUrl) {
+          removeBtn.style.display = "none";
+        } else {
+          removeBtn.style.display = "inline-flex";
+        }
+      }
+    });
+  };
+
+  const handleShopRowInput = (row) => {
+    const urlInput = row.querySelector(".shop-url-input");
+    const nameInput = row.querySelector(".shop-name-input");
+    const statusEl = row.querySelector(".shop-row-status");
+    if (!urlInput || !statusEl) return;
+
+    const url = urlInput.value.trim();
+    const detected = detectShop(url);
+
+    if (url) {
+      statusEl.innerHTML = `
+        <span class="badge badge-shop ${detected.badgeClass}">
+          ${detected.icon} <strong>${escapeHtml(detected.name)}</strong>
+        </span>
+      `;
+      if (nameInput && !nameInput.value.trim()) {
+        nameInput.value = detected.name;
+      }
+      if (nameInput) {
+        nameInput.placeholder = escapeHtml(detected.name);
+      }
+    } else {
+      statusEl.innerHTML = `<span class="form-hint">Shop wird anhand der URL automatisch erkannt</span>`;
+      if (nameInput) {
+        nameInput.placeholder = "z. B. Amazon, Smyths Toys";
+      }
+    }
+    updateShopRowIndices();
+  };
+
+  if (shopLinksList) {
+    shopLinksList.addEventListener("input", (e) => {
+      const target = e.target;
+      if (target.classList.contains("shop-url-input")) {
+        const row = target.closest(".shop-link-row");
+        if (row) handleShopRowInput(row);
+      }
+    });
+
+    shopLinksList.addEventListener("click", (e) => {
+      const btn = e.target.closest(".btn-remove-shop");
+      if (!btn) return;
+      const row = btn.closest(".shop-link-row");
+      if (!row) return;
+
+      const rows = shopLinksList.querySelectorAll(".shop-link-row");
+      if (rows.length > 1) {
+        row.remove();
+      } else {
+        const urlInput = row.querySelector(".shop-url-input");
+        const nameInput = row.querySelector(".shop-name-input");
+        const priceInput = row.querySelector(".shop-price-input");
+        if (urlInput) urlInput.value = "";
+        if (nameInput) nameInput.value = "";
+        if (priceInput) priceInput.value = "";
+        handleShopRowInput(row);
+      }
+      updateShopRowIndices();
+    });
+  }
+
+  if (btnAddShopLink && shopLinksList) {
+    btnAddShopLink.addEventListener("click", () => {
+      const rows = shopLinksList.querySelectorAll(".shop-link-row");
+      const newIndex = rows.length;
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = renderShopRowHtml({ name: "", url: "", price: "" }, newIndex, newIndex + 1);
+      const newRow = tempDiv.firstElementChild;
+      shopLinksList.appendChild(newRow);
+      updateShopRowIndices();
+      const newUrlInput = newRow.querySelector(".shop-url-input");
+      if (newUrlInput) newUrlInput.focus();
     });
   }
 
@@ -658,26 +843,48 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
       const targetEventId = modalOverlay.querySelector("#wish-target-event").value;
       const id = wishForm.querySelector("#wish-id").value || generateId("wish");
       const title = wishForm.querySelector("#wish-title").value.trim();
-      const url = wishForm.querySelector("#wish-url").value.trim();
       const price = parseFloat(wishForm.querySelector("#wish-price").value) || 0;
       const category = wishForm.querySelector("#wish-category").value;
       const priority = wishForm.querySelector("#wish-priority").value;
       const image = wishForm.querySelector("#wish-image").value.trim();
       const description = wishForm.querySelector("#wish-description").value.trim();
       const note = wishForm.querySelector("#wish-note").value.trim();
-      const detected = detectShop(url);
+
+      const shopRows = modalOverlay.querySelectorAll(".shop-link-row");
+      const shops = [];
+      shopRows.forEach((row) => {
+        const uInput = row.querySelector(".shop-url-input");
+        const nInput = row.querySelector(".shop-name-input");
+        const pInput = row.querySelector(".shop-price-input");
+        const rawUrl = uInput ? uInput.value.trim() : "";
+        if (!rawUrl) return;
+        const detected = detectShop(rawUrl);
+        const name = (nInput && nInput.value.trim()) ? nInput.value.trim() : detected.name;
+        const priceVal = (pInput && pInput.value !== "") ? parseFloat(pInput.value) : null;
+        shops.push({
+          name,
+          url: rawUrl,
+          price: (priceVal !== null && !isNaN(priceVal)) ? priceVal : price,
+          icon: detected.icon
+        });
+      });
+
+      const primaryUrl = shops.length > 0 ? shops[0].url : "";
+      const primaryShopName = shops.length > 0 ? shops[0].name : "";
+      const finalPrice = (price > 0) ? price : (shops.length > 0 && typeof shops[0].price === "number" ? shops[0].price : 0);
 
       const payload = {
         id,
         title,
-        url,
-        price,
+        url: primaryUrl,
+        shopName: primaryShopName,
+        shops,
+        price: finalPrice,
         category,
         priority,
         image,
         description,
         note,
-        shopName: detected.name,
         status: wishData.status || "available",
         reservedBy: wishData.reservedBy || "",
         reservedAt: wishData.reservedAt || null,

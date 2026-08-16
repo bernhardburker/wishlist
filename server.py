@@ -19,14 +19,23 @@ from datetime import datetime
 
 PORT = int(os.environ.get("PORT", 8088))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.environ.get("WUNSCHLISTE_DATA_DIR", os.path.join(DIRECTORY, "data"))
-DATA_FILE = os.path.join(DATA_DIR, "events.json")
-SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 DEFAULT_ENV_ADMIN_PIN = os.environ.get("ADMIN_PIN", "1234")
+
+def get_data_dir():
+    """Gibt das aktuelle Datenverzeichnis zurück (konfigurierbar via WUNSCHLISTE_DATA_DIR)"""
+    return os.environ.get("WUNSCHLISTE_DATA_DIR", os.path.join(DIRECTORY, "data"))
+
+def get_events_file():
+    """Gibt den Pfad zu events.json zurück"""
+    return os.path.join(get_data_dir(), "events.json")
+
+def get_settings_file():
+    """Gibt den Pfad zu settings.json zurück"""
+    return os.path.join(get_data_dir(), "settings.json")
 
 def ensure_data_dirs():
     """Stellt sicher, dass das Datenverzeichnis existiert"""
-    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(get_data_dir(), exist_ok=True)
 
 def atomic_write_json(file_path, data):
     """Schreibt JSON atomar über eine temporäre Datei (verhindert Datenverlust/Korruption)"""
@@ -38,11 +47,12 @@ def atomic_write_json(file_path, data):
     shutil.move(temp_name, file_path)
 
 def load_settings_from_disk():
-    """Lädt Einstellungen & Admin-PIN aus data/settings.json"""
+    """Lädt Einstellungen & Admin-PIN aus settings.json"""
     ensure_data_dirs()
-    if os.path.exists(SETTINGS_FILE):
+    settings_file = get_settings_file()
+    if os.path.exists(settings_file):
         try:
-            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            with open(settings_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 if isinstance(data, dict):
                     return data
@@ -66,16 +76,17 @@ def get_current_admin_pin():
 
 def save_settings_to_disk(settings):
     """Speichert Einstellungen & Admin-PIN atomar"""
-    atomic_write_json(SETTINGS_FILE, settings)
+    atomic_write_json(get_settings_file(), settings)
 
 def ensure_data_file():
     """Stellt sicher, dass die Datei events.json existiert"""
     ensure_data_dirs()
-    if not os.path.exists(DATA_FILE):
+    events_file = get_events_file()
+    if not os.path.exists(events_file):
         source_template = os.path.join(DIRECTORY, "data", "events.json")
-        if os.path.exists(source_template) and os.path.abspath(source_template) != os.path.abspath(DATA_FILE):
+        if os.path.exists(source_template) and os.path.abspath(source_template) != os.path.abspath(events_file):
             try:
-                shutil.copyfile(source_template, DATA_FILE)
+                shutil.copyfile(source_template, events_file)
                 return
             except Exception as e:
                 print(f"Fehler beim Kopieren von events.json Template: {e}", file=sys.stderr)
@@ -92,17 +103,22 @@ def ensure_data_file():
                 "wishes": []
             }
         ]
-        atomic_write_json(DATA_FILE, default_data)
+        atomic_write_json(events_file, default_data)
 
 def load_events_from_disk():
     """Lädt die aktuellen Events aus der JSON-Datei"""
     ensure_data_file()
+    events_file = get_events_file()
     try:
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
+        with open(events_file, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"Fehler beim Laden von events.json: {e}", file=sys.stderr)
         return []
+
+def save_events_to_disk(events):
+    """Speichert Events atomar in die JSON-Datei"""
+    atomic_write_json(get_events_file(), events)
 
 
 def sanitize_wish_for_guests(wish):
@@ -301,7 +317,7 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             target_wish["updatedAt"] = datetime.now().isoformat()
-            atomic_write_json(DATA_FILE, events)
+            atomic_write_json(get_events_file(), events)
 
             if not self.check_admin_auth():
                 resp_wish = sanitize_wish_for_guests(target_wish)
@@ -341,7 +357,7 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(400, {"error": "Erwarte Array von Veranstaltungen"})
                 return
 
-            atomic_write_json(DATA_FILE, body)
+            save_events_to_disk(body)
             self.send_json(200, {"success": True, "events": body})
             return
 
@@ -375,7 +391,7 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
                 wish_data.setdefault("updatedAt", datetime.now().isoformat())
                 wishes.insert(0, wish_data)
 
-            atomic_write_json(DATA_FILE, events)
+            save_events_to_disk(events)
             self.send_json(200, {"success": True, "events": events})
             return
 
@@ -402,7 +418,7 @@ class WunschlisteHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             target_event["wishes"] = [w for w in target_event.get("wishes", []) if w.get("id") != body["wishId"]]
-            atomic_write_json(DATA_FILE, events)
+            save_events_to_disk(events)
             self.send_json(200, {"success": True, "events": events})
             return
 
@@ -417,7 +433,7 @@ def run():
             print("=" * 65)
             print(f"🎁 Wunschliste Server läuft auf Port {PORT}")
             print(f"📂 Verzeichnis: {DIRECTORY}")
-            print(f"💾 Datendatei:  {DATA_FILE}")
+            print(f"💾 Datendatei:  {get_events_file()}")
             print(f"🌐 REST API:    http://localhost:{PORT}/api/events")
             print("=" * 65)
             httpd.serve_forever()
