@@ -34,12 +34,27 @@ jobs:
 
       - name: 📦 Deployment & Service Upgrade
         run: |
-          echo "=== Deploy Runner Environment ==="
-          id
-          pwd
-          ls -ld /mnt/data/work/wunschliste || true
-          chmod +x deploy/upgrade.sh
-          bash -x ./deploy/upgrade.sh /mnt/data/work/wunschliste
+          {
+            echo "=== RUNNER INFO ==="
+            id
+            pwd
+            uname -a
+            echo "=== TARGET DIR PERMS ==="
+            ls -ld /mnt/data/work/wunschliste || true
+            ls -la /mnt/data/work/wunschliste || true
+            chmod +x deploy/upgrade.sh
+            bash -x ./deploy/upgrade.sh /mnt/data/work/wunschliste
+          } 2>&1 | tee deploy-run.log
+
+      - name: 📤 Deployment Logs bereitstellen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-logs
+          path: |
+            deploy-run.log
+            /mnt/data/work/wunschliste/server.log
+          if-no-files-found: ignore
 
       - name: 🩺 Smoke Test & Health Check
         run: |
