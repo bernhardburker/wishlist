@@ -343,12 +343,88 @@ export class StorageService {
 
     if (mode === "replace") {
       event.wishes = newWishes;
+    } else if (mode === "merge") {
+      event.wishes = this._mergeWishes(event.wishes, newWishes);
     } else {
-      event.wishes = [...event.wishes, ...newWishes];
+      // append: nur wirklich neue IDs hinzufügen
+      const existingIds = new Set(event.wishes.map((w) => w.id));
+      const toAdd = newWishes.filter((w) => !existingIds.has(w.id));
+      event.wishes = [...event.wishes, ...toAdd];
     }
 
     const synced = await this.syncEventsToServer(events);
     return synced || events;
+  }
+
+  /**
+   * Merge-Logik: Zusammenführen von bestehenden und neuen Wünschen.
+   * - Exakte ID-Übereinstimmung → bestehendem Eintrag Amazon-Link als Notiz hinzufügen
+   * - Titel-Ähnlichkeit ≥ 40% → als Duplikat behandeln (Notiz ergänzen)
+   * - Sonst → neu hinzufügen
+   */
+  _mergeWishes(existing, incoming) {
+    const normalize = (str) => {
+      return (str || "")
+        .toLowerCase()
+        .replace(/[äÄ]/g, "a").replace(/[öÖ]/g, "o").replace(/[üÜ]/g, "u").replace(/ß/g, "ss")
+        .replace(/[^\w\s]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length > 2 && !["der","die","das","mit","und","fur","set","von","ein","eine","fur","ab","cm"].includes(w))
+        .join(" ");
+    };
+
+    const similarity = (a, b) => {
+      const na = normalize(a).split(" ");
+      const nb = normalize(b).split(" ");
+      const setA = new Set(na);
+      const setB = new Set(nb);
+      const intersection = [...setA].filter((w) => setB.has(w)).length;
+      const union = new Set([...setA, ...setB]).size;
+      return union === 0 ? 0 : intersection / union;
+    };
+
+    const result = existing.map((w) => ({ ...w }));
+    const merged = new Set();
+
+    for (const newWish of incoming) {
+      // 1. Exakte ID-Übereinstimmung
+      const exactIdx = result.findIndex((w) => w.id === newWish.id);
+      if (exactIdx !== -1) {
+        merged.add(newWish.id);
+        this._appendAlternativeNote(result[exactIdx], newWish);
+        continue;
+      }
+
+      // 2. Titel-Ähnlichkeit
+      let bestScore = 0;
+      let bestIdx = -1;
+      for (let i = 0; i < result.length; i++) {
+        const score = similarity(result[i].title, newWish.title);
+        if (score > bestScore) { bestScore = score; bestIdx = i; }
+      }
+
+      if (bestScore >= 0.40 && bestIdx !== -1) {
+        merged.add(newWish.id);
+        this._appendAlternativeNote(result[bestIdx], newWish);
+      } else {
+        // 3. Wirklich neu → hinzufügen
+        result.push(newWish);
+      }
+    }
+
+    return result;
+  }
+
+  /** Ergänzt im bestehenden Wunsch eine Alternativ-Shop-Notiz. */
+  _appendAlternativeNote(existing, newWish) {
+    const shopName = newWish.shopName || "Alternative";
+    const price = newWish.price ? ` (${newWish.price.toFixed(2).replace(".", ",")} €)` : "";
+    const url = newWish.url || "";
+    const tag = `Auch bei ${shopName}${price}: ${url}`;
+    const existingNote = existing.note || "";
+    if (!existingNote.includes(url)) {
+      existing.note = existingNote ? `${existingNote} | ${tag}` : tag;
+    }
   }
 
   /**

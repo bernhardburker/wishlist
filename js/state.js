@@ -284,13 +284,19 @@ class StateStore {
     const target = (active.wishes || []).find(w => w.id === wishId);
     if (!target) return false;
 
+    // Falls bereits reserviert und ein PIN gesetzt ist: PIN prüfen (außer Admin)
+    if (target.status === "reserved" && target.reservePin && !this.isAdmin) {
+      const isAllowed = pin === target.reservePin || pin === this.settings.adminPin;
+      if (!isAllowed) return false;
+    }
+
     const updated = {
       ...target,
       status: asBought ? "bought" : "reserved",
       reservedBy: userName.trim(),
       reservedAt: new Date().toISOString(),
       reserveNote: note.trim(),
-      reservePin: pin.trim()
+      reservePin: pin.trim() || target.reservePin // behalte alten PIN wenn keiner neu gesetzt
     };
 
     storage.setSavedUserName(userName);

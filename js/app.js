@@ -51,7 +51,9 @@ class App {
       this.modalContainer.innerHTML = "";
 
       if (state.activeModal === "reserve" && state.selectedWish) {
-        renderReserveModal(this.modalContainer, state.selectedWish);
+        renderReserveModal(this.modalContainer, state.selectedWish, false);
+      } else if (state.activeModal === "markBought" && state.selectedWish) {
+        renderReserveModal(this.modalContainer, state.selectedWish, true);
       } else if (state.activeModal === "cancel" && state.selectedWish) {
         renderCancelModal(this.modalContainer, state.selectedWish);
       } else if (state.activeModal === "admin" || state.activeModal === "addWish") {

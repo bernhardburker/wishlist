@@ -118,9 +118,16 @@ export function createGiftCardElement(wish) {
           <button class="btn btn-primary btn-reserve" data-id="${wish.id}">
             <span>🎁 Ich schenke das</span>
           </button>
-        ` : `
+        ` : isBought ? `
           <button class="btn btn-secondary btn-cancel-reserve" data-id="${wish.id}">
             <span>↩ Reservierung aufheben</span>
+          </button>
+        ` : `
+          <button class="btn btn-primary btn-mark-bought" data-id="${wish.id}">
+            <span>🎁 Als gekauft markieren</span>
+          </button>
+          <button class="btn btn-secondary btn-cancel-reserve" data-id="${wish.id}">
+            <span>↩ Aufheben</span>
           </button>
         `}
 
@@ -177,6 +184,13 @@ export function createGiftCardElement(wish) {
   if (btnCancel) {
     btnCancel.addEventListener("click", () => {
       state.openModal("cancel", wish);
+    });
+  }
+
+  const btnMarkBought = card.querySelector(".btn-mark-bought");
+  if (btnMarkBought) {
+    btnMarkBought.addEventListener("click", () => {
+      state.openModal("markBought", wish);
     });
   }
 

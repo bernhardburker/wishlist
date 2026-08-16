@@ -397,8 +397,12 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
 
               <div class="import-mode-selection">
                 <label class="radio-label">
-                  <input type="radio" name="importMode" value="append" checked />
-                  <span>An bestehende Wünsche <strong>anhängen</strong></span>
+                  <input type="radio" name="importMode" value="merge" checked />
+                  <span>Doppelte Einträge automatisch <strong>zusammenführen</strong> <span class="badge-hint">✨ Empfohlen</span></span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="importMode" value="append" />
+                  <span>Alle Einträge <strong>anhängen</strong> (ohne Dublikatsprüfung)</span>
                 </label>
                 <label class="radio-label">
                   <input type="radio" name="importMode" value="replace" />

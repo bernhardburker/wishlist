@@ -1073,6 +1073,18 @@
   cursor: pointer;
 }
 
+.badge-hint {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: hsl(142 60% 92%);
+  color: hsl(142 50% 30%);
+  border-radius: 99px;
+  padding: 0.1rem 0.5rem;
+  margin-left: 0.25rem;
+  vertical-align: middle;
+}
+
 /* Form Styles */
 .form-group {
   display: flex;

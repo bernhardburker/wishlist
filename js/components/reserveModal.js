@@ -7,22 +7,25 @@ import { storage } from "../storage.js";
 import { escapeHtml, formatCurrency, triggerConfetti, DEFAULT_IMAGE_PLACEHOLDER } from "../utils/helpers.js";
 import { toast } from "./toast.js";
 
-export function renderReserveModal(container, wish) {
+export function renderReserveModal(container, wish, preSelectBought = false) {
   if (!wish) return;
 
-  const savedName = storage.getSavedUserName();
+  const savedName = preSelectBought
+    ? (wish.reservedBy || storage.getSavedUserName())
+    : storage.getSavedUserName();
 
   let modalImage = (wish.image || "").trim() || DEFAULT_IMAGE_PLACEHOLDER;
   if (modalImage && modalImage.includes("image.smythstoys.com") && !modalImage.match(/\.(jpg|jpeg|png|webp)($|\?)/i)) {
     modalImage += ".jpg";
   }
 
+  const modalTitle = preSelectBought ? "🎁 Als gekauft markieren" : "🎁 Geschenk reservieren";
   const modalOverlay = document.createElement("div");
   modalOverlay.className = "modal-overlay";
   modalOverlay.innerHTML = `
     <div class="modal-card modal-reserve" role="dialog" aria-labelledby="modal-reserve-title">
       <div class="modal-header">
-        <h2 id="modal-reserve-title" class="modal-title">🎁 Geschenk reservieren</h2>
+        <h2 id="modal-reserve-title" class="modal-title">${modalTitle}</h2>
         <button class="modal-close-btn" aria-label="Schließen">&times;</button>
       </div>
 
@@ -60,16 +63,16 @@ export function renderReserveModal(container, wish) {
           <div class="form-group">
             <label class="form-label">Status festlegen:</label>
             <div class="radio-options-grid">
-              <label class="radio-option-card active">
-                <input type="radio" name="reserveStatus" value="reserved" checked />
+              <label class="radio-option-card ${preSelectBought ? '' : 'active'}">
+                <input type="radio" name="reserveStatus" value="reserved" ${preSelectBought ? '' : 'checked'} />
                 <div class="radio-option-content">
                   <span class="radio-title">🔒 Für mich reservieren</span>
                   <span class="radio-desc">Ich plane, dieses Geschenk zu besorgen.</span>
                 </div>
               </label>
 
-              <label class="radio-option-card">
-                <input type="radio" name="reserveStatus" value="bought" />
+              <label class="radio-option-card ${preSelectBought ? 'active' : ''}">
+                <input type="radio" name="reserveStatus" value="bought" ${preSelectBought ? 'checked' : ''} />
                 <div class="radio-option-content">
                   <span class="radio-title">🎁 Bereits gekauft</span>
                   <span class="radio-desc">Liegt schon fertig bereit / bestellt.</span>
@@ -104,7 +107,7 @@ export function renderReserveModal(container, wish) {
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost btn-cancel-modal">Abbrechen</button>
             <button type="submit" class="btn btn-primary">
-              <span>Jetzt reservieren 🎁</span>
+              <span>${preSelectBought ? 'Als gekauft markieren 🎁' : 'Jetzt reservieren 🎁'}</span>
             </button>
           </div>
         </form>
@@ -165,10 +168,17 @@ export function renderReserveModal(container, wish) {
     const success = await state.reserveWish(wish.id, name, note, pin, asBought);
     if (success) {
       triggerConfetti();
-      toast.success(`Vielen Dank, ${escapeHtml(name)}! Du hast "${escapeHtml(wish.title)}" erfolgreich reserviert.`);
+      const msg = asBought
+        ? `Super, ${escapeHtml(name)}! "${escapeHtml(wish.title)}" ist als gekauft markiert. 🎁`
+        : `Vielen Dank, ${escapeHtml(name)}! Du hast "${escapeHtml(wish.title)}" erfolgreich reserviert.`;
+      toast.success(msg);
       state.closeModal();
     } else {
-      toast.error("Fehler beim Speichern der Reservierung.");
+      const isUpgrade = wish.status === "reserved" && wish.reservePin;
+      toast.error(isUpgrade
+        ? "Falscher PIN! Nur die Person, die reserviert hat (oder der Admin), kann den Status ändern."
+        : "Fehler beim Speichern der Reservierung."
+      );
     }
   });
 
