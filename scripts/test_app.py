@@ -130,6 +130,14 @@ def test_server_and_routes():
 
     cwd = os.getcwd()
     os.chdir(PROJECT_ROOT)
+
+    # Backup data/events.json during test execution
+    events_backup = None
+    events_file = os.path.join(PROJECT_ROOT, "data", "events.json")
+    if os.path.exists(events_file):
+        with open(events_file, "r", encoding="utf-8") as f:
+            events_backup = f.read()
+
     server = TestServer()
     server.daemon = True
     server.start()
@@ -253,6 +261,9 @@ def test_server_and_routes():
 
     finally:
         server.stop()
+        if events_backup is not None:
+            with open(events_file, "w", encoding="utf-8") as f:
+                f.write(events_backup)
         os.chdir(cwd)
 
     return all_ok
