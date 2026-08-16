@@ -153,6 +153,7 @@ export class StorageService {
     const baseUrl = this.getApiBaseUrl();
     const apiUrl = baseUrl ? `${baseUrl}/api/events` : `/api/events`;
 
+    // 1. REST API versuchen
     try {
       const res = await fetch(`${apiUrl}?_t=${Date.now()}`);
       if (res.ok) {
@@ -166,7 +167,19 @@ export class StorageService {
       // Server nicht erreichbar
     }
 
-    // 2. Lokaler Speicher
+    // 2. Statische data/events.json laden (z. B. auf GitHub Pages oder statischem Hosting)
+    try {
+      const staticRes = await fetch(`./data/events.json?_t=${Date.now()}`);
+      if (staticRes.ok) {
+        const staticEvents = await staticRes.json();
+        if (Array.isArray(staticEvents) && staticEvents.length > 0) {
+          this.saveLocalEvents(staticEvents);
+          return staticEvents;
+        }
+      }
+    } catch (e) {}
+
+    // 3. Lokaler Speicher (Offline Fallback)
     try {
       const localData = localStorage.getItem(STORAGE_KEYS.EVENTS);
       if (localData) {
@@ -178,18 +191,6 @@ export class StorageService {
     } catch (e) {
       console.error("Fehler beim Laden des lokalen Speichers:", e);
     }
-
-    // 3. Statische data/events.json
-    try {
-      const staticRes = await fetch(`./data/events.json?_t=${Date.now()}`);
-      if (staticRes.ok) {
-        const staticEvents = await staticRes.json();
-        if (Array.isArray(staticEvents) && staticEvents.length > 0) {
-          this.saveLocalEvents(staticEvents);
-          return staticEvents;
-        }
-      }
-    } catch (e) {}
 
     // 4. Default Events
     this.saveLocalEvents(defaultEvents);

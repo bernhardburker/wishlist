@@ -113,8 +113,79 @@ def test_css_variables():
 
     return all_ok
 
+def test_js_module_integrity():
+    print("\n📦 4. Überprüfe JavaScript ES-Module, Imports & Exports...")
+    import glob
+
+    js_files = glob.glob(os.path.join(PROJECT_ROOT, "js/**/*.js"), recursive=True) + [
+        os.path.join(PROJECT_ROOT, "data", "default-wishes.js")
+    ]
+
+    def extract_exports(filepath):
+        exports = set()
+        has_default = False
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        for m in re.finditer(r'export\s+(?:const|let|var|function\*?|class|async\s+function\*?)\s+([a-zA-Z0-9_$]+)', content):
+            exports.add(m.group(1))
+
+        for m in re.finditer(r'export\s*\{([^}]+)\}', content):
+            for item in m.group(1).split(','):
+                item = item.strip()
+                if not item:
+                    continue
+                if ' as ' in item:
+                    exports.add(item.split(' as ')[1].strip())
+                else:
+                    exports.add(item)
+
+        if re.search(r'export\s+default\s+', content):
+            has_default = True
+
+        return exports, has_default
+
+    file_exports = {f: extract_exports(f) for f in js_files}
+    errors = []
+
+    for f in js_files:
+        rel_f = os.path.relpath(f, PROJECT_ROOT)
+        with open(f, "r", encoding="utf-8") as handle:
+            content = handle.read()
+
+        for m in re.finditer(r'import\s+(?:(\{[^}]+\})|([a-zA-Z0-9_$]+)|\*\s+as\s+[a-zA-Z0-9_$]+)\s+from\s+[\'\"]([^\'\"]+)[\'\"]', content):
+            named_imports, default_import, target_rel = m.groups()
+            target_path = os.path.normpath(os.path.join(os.path.dirname(f), target_rel))
+
+            if not os.path.exists(target_path):
+                errors.append(f"[{rel_f}] Importiert nicht existierende Datei: {target_rel}")
+                continue
+
+            target_exp, target_has_default = file_exports.get(target_path, (set(), False))
+
+            if default_import and not target_has_default:
+                errors.append(f"[{rel_f}] Default-Import '{default_import}' existiert nicht in {target_rel}")
+
+            if named_imports:
+                raw_items = named_imports.strip('{}').split(',')
+                for item in raw_items:
+                    item = item.strip()
+                    if not item:
+                        continue
+                    orig_name = item.split(' as ')[0].strip()
+                    if orig_name not in target_exp:
+                        errors.append(f"[{rel_f}] Named-Import '{orig_name}' fehlt in {target_rel}")
+
+    if errors:
+        for err in errors:
+            log_fail(err)
+        return False
+
+    log_pass(f"Alle {len(js_files)} ES-Module auf konsistente Imports & Exports geprüft (0 Fehler)")
+    return True
+
 def test_server_and_routes():
-    print("\n🚀 4. Überprüfe lokalen Webserver & REST-API Endpunkte...")
+    print("\n🚀 5. Überprüfe lokalen Webserver & REST-API Endpunkte...")
     PORT = 8999
     sys.path.insert(0, PROJECT_ROOT)
     from server import WunschlisteHandler
@@ -352,10 +423,11 @@ def main():
     t1 = test_file_structure()
     t2 = test_html_integrity()
     t3 = test_css_variables()
-    t4 = test_server_and_routes()
+    t4 = test_js_module_integrity()
+    t5 = test_server_and_routes()
 
     print("\n" + "=" * 65)
-    if t1 and t2 and t3 and t4:
+    if t1 and t2 and t3 and t4 and t5:
         print("🎉 \033[92mALLE CI-TESTS ERFOLGREICH BESTANDEN!\033[0m")
         print("=" * 65)
         sys.exit(0)

@@ -1,7 +1,10 @@
 name: Deploy Wunschliste to Burkerserver
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI - Qualität & Tests"]
+    types:
+      - completed
     branches:
       - main
   workflow_dispatch:
@@ -11,26 +14,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # ── 1. Tests & Validierung auf dem lokalen Runner (Burkerserver) ───────────
-  test:
-    name: 🧪 Tests & Validierung
-    runs-on: self-hosted
-    steps:
-      - name: 📥 Repository auschecken
-        uses: actions/checkout@v4
-
-      - name: 🐍 CI-Testsuite ausführen
-        run: |
-          python3 scripts/test_app.py
-
-  # ── 2. Deployment & Service-Neustart auf dem Burkerserver ───────────────────
   deploy:
     name: 🚀 Deploy auf Burkerserver
-    needs: test
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: self-hosted
     steps:
       - name: 📥 Repository auschecken
         uses: actions/checkout@v4
+
+      - name: 🐍 CI-Testsuite zur Sicherheit ausführen
+        run: |
+          python3 scripts/test_app.py
 
       - name: 📦 Deployment & Service Upgrade
         run: |
