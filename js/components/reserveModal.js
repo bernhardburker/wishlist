@@ -27,7 +27,7 @@ export function renderReserveModal(container, wish, preSelectBought = false) {
         <button class="modal-close-btn" aria-label="Schließen">&times;</button>
       </div>
 
-      <div class="modal-body">
+      <div class="modal-body modal-body-scrollable">
         <div class="reserve-product-summary">
           <img
             src="${escapeHtml(modalImage)}"
@@ -144,6 +144,11 @@ export function renderReserveModal(container, wish, preSelectBought = false) {
   modalOverlay.addEventListener("click", (e) => {
     if (e.target === modalOverlay) closeModal();
   });
+  modalOverlay.addEventListener("touchmove", (e) => {
+    if (e.target === modalOverlay) {
+      e.preventDefault();
+    }
+  }, { passive: false });
 
   // Radio button active styling
   const radioCards = modalOverlay.querySelectorAll(".radio-option-card");

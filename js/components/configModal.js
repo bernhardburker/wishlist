@@ -88,6 +88,11 @@ export function renderConfigModal(container) {
   modalOverlay.addEventListener("click", (e) => {
     if (e.target === modalOverlay) close();
   });
+  modalOverlay.addEventListener("touchmove", (e) => {
+    if (e.target === modalOverlay) {
+      e.preventDefault();
+    }
+  }, { passive: false });
 
   const form = modalOverlay.querySelector("#form-server-config");
   const resultBox = modalOverlay.querySelector("#server-test-result");

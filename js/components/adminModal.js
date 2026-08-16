@@ -33,7 +33,7 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
           <h2 class="modal-title">🔐 Admin-Bereich entsperren</h2>
           <button class="modal-close-btn">&times;</button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-body-scrollable">
           <p class="modal-intro">
             Gib deinen Admin-PIN ein, um Veranstaltungen und Wünsche zu verwalten oder neue Wünsche anzulegen.
           </p>
@@ -67,6 +67,11 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
     modalOverlay.addEventListener("click", (e) => {
       if (e.target === modalOverlay) closeModal();
     });
+    modalOverlay.addEventListener("touchmove", (e) => {
+      if (e.target === modalOverlay) {
+        e.preventDefault();
+      }
+    }, { passive: false });
 
     const loginForm = modalOverlay.querySelector("#form-admin-login");
     loginForm.addEventListener("submit", async (e) => {
@@ -507,6 +512,11 @@ export function renderAdminModal(container, modalType = "admin", editingWish = n
   modalOverlay.addEventListener("click", (e) => {
     if (e.target === modalOverlay) closeModal();
   });
+  modalOverlay.addEventListener("touchmove", (e) => {
+    if (e.target === modalOverlay) {
+      e.preventDefault();
+    }
+  }, { passive: false });
 
   // Tab switching logic
   const tabBtns = modalOverlay.querySelectorAll(".tab-btn");

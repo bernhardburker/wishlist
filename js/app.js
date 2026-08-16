@@ -11,6 +11,36 @@ import { renderCancelModal } from "./components/cancelModal.js";
 import { renderAdminModal } from "./components/adminModal.js";
 import { renderConfigModal } from "./components/configModal.js";
 
+let scrollLockPosition = 0;
+let isScrollLocked = false;
+
+function setScrollLock(lock) {
+  if (lock === isScrollLocked) return;
+  isScrollLocked = lock;
+
+  if (lock) {
+    scrollLockPosition = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+    document.documentElement.classList.add("modal-open");
+    document.body.classList.add("modal-open");
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollLockPosition}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.width = "100%";
+    document.body.style.overflow = "hidden";
+  } else {
+    document.documentElement.classList.remove("modal-open");
+    document.body.classList.remove("modal-open");
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.left = "";
+    document.body.style.right = "";
+    document.body.style.width = "";
+    document.body.style.overflow = "";
+    window.scrollTo(0, scrollLockPosition);
+  }
+}
+
 class App {
   constructor() {
     this.headerContainer = document.getElementById("header-root");
@@ -65,10 +95,8 @@ class App {
       }
     }
 
-    // Hintergrund-Scrollen sperren, wenn ein Modal aktiv ist
-    const hasModal = Boolean(state.activeModal);
-    document.documentElement.classList.toggle("modal-open", hasModal);
-    document.body.classList.toggle("modal-open", hasModal);
+    // Hintergrund-Scrollen auf Mobilgeräten & Desktop zuverlässig sperren
+    setScrollLock(Boolean(state.activeModal));
   }
 }
 

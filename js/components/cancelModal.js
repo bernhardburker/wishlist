@@ -21,7 +21,7 @@ export function renderCancelModal(container, wish) {
         <button class="modal-close-btn" aria-label="Schließen">&times;</button>
       </div>
 
-      <div class="modal-body">
+      <div class="modal-body modal-body-scrollable">
         <p class="modal-intro">
           Möchtest du die Reservierung für <strong>${escapeHtml(wish.title)}</strong> aufheben?
         </p>
@@ -75,6 +75,11 @@ export function renderCancelModal(container, wish) {
   modalOverlay.addEventListener("click", (e) => {
     if (e.target === modalOverlay) closeModal();
   });
+  modalOverlay.addEventListener("touchmove", (e) => {
+    if (e.target === modalOverlay) {
+      e.preventDefault();
+    }
+  }, { passive: false });
 
   const form = modalOverlay.querySelector("#form-cancel");
   form.addEventListener("submit", async (e) => {
