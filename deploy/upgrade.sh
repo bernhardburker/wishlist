@@ -30,11 +30,11 @@ if [ "$SRC_DIR" != "$TARGET_DIR" ]; then
     cp -f "$SRC_DIR/server.py" "$TARGET_DIR/" 2>/dev/null || true
     cp -f "$SRC_DIR/index.html" "$TARGET_DIR/" 2>/dev/null || true
     cp -f "$SRC_DIR/README.md" "$TARGET_DIR/" 2>/dev/null || true
-    [ -d "$SRC_DIR/css" ] && cp -rf "$SRC_DIR/css/"* "$TARGET_DIR/css/" 2>/dev/null || true
-    [ -d "$SRC_DIR/js" ] && cp -rf "$SRC_DIR/js/"* "$TARGET_DIR/js/" 2>/dev/null || true
-    [ -d "$SRC_DIR/assets" ] && cp -rf "$SRC_DIR/assets/"* "$TARGET_DIR/assets/" 2>/dev/null || true
-    [ -d "$SRC_DIR/scripts" ] && cp -rf "$SRC_DIR/scripts/"* "$TARGET_DIR/scripts/" 2>/dev/null || true
-    [ -d "$SRC_DIR/deploy" ] && cp -rf "$SRC_DIR/deploy/"* "$TARGET_DIR/deploy/" 2>/dev/null || true
+    [ -d "$SRC_DIR/css" ] && cp -rf "$SRC_DIR/css/." "$TARGET_DIR/css/" 2>/dev/null || true
+    [ -d "$SRC_DIR/js" ] && cp -rf "$SRC_DIR/js/." "$TARGET_DIR/js/" 2>/dev/null || true
+    [ -d "$SRC_DIR/assets" ] && cp -rf "$SRC_DIR/assets/." "$TARGET_DIR/assets/" 2>/dev/null || true
+    [ -d "$SRC_DIR/scripts" ] && cp -rf "$SRC_DIR/scripts/." "$TARGET_DIR/scripts/" 2>/dev/null || true
+    [ -d "$SRC_DIR/deploy" ] && cp -rf "$SRC_DIR/deploy/." "$TARGET_DIR/deploy/" 2>/dev/null || true
 fi
 
 # 3. Sicherstellen, dass Live-Daten nicht überschrieben werden
@@ -53,6 +53,7 @@ fi
 
 # 4. Systemd Service registrieren & Dienst starten
 SERVICE_STARTED=false
+PYTHON_BIN="$(command -v python3 || echo /usr/bin/python3)"
 
 # Systemd User-Unit bereitstellen (falls beschreibbar)
 if [ -f "$TARGET_DIR/deploy/wunschliste.service" ]; then
@@ -76,33 +77,40 @@ if command -v systemctl >/dev/null 2>&1; then
     fi
 fi
 
-# Fallback: Falls systemd D-Bus in der Runner-Umgebung nicht erreichbar ist, direkter Daemon-Start
+# Fallback: Falls systemd D-Bus in der Runner-Umgebung nicht erreichbar ist, direkter Daemon-Start via setsid
 if [ "$SERVICE_STARTED" = false ]; then
     echo "ℹ️ Systemd D-Bus nicht direkt ansprechbar. Starte Python-Server als Hintergrunddienst..."
+    pkill -f "$TARGET_DIR/server.py" 2>/dev/null || true
     pkill -f "python3.*server.py" 2>/dev/null || true
     sleep 1
+
     cd "$TARGET_DIR"
-    nohup /usr/bin/python3 "$TARGET_DIR/server.py" >> "$TARGET_DIR/server.log" 2>&1 &
+    if command -v setsid >/dev/null 2>&1; then
+        setsid "$PYTHON_BIN" -u "$TARGET_DIR/server.py" >> "$TARGET_DIR/server.log" 2>&1 &
+    else
+        nohup "$PYTHON_BIN" -u "$TARGET_DIR/server.py" >> "$TARGET_DIR/server.log" 2>&1 &
+    fi
+    disown -a 2>/dev/null || true
 fi
 
 # 5. Smoke Test / Health Check ausführen
 echo "🔍 Führe Health Check gegen http://127.0.0.1:$PORT/api/health durch..."
 HEALTHY=false
-for i in {1..15}; do
+for i in {1..20}; do
     if curl --fail --silent "http://127.0.0.1:$PORT/api/health" > /dev/null; then
         echo "✔ Server antwortet erfolgreich auf Port $PORT!"
         HEALTHY=true
         break
     fi
-    echo "   Warte auf Server (Versuch $i/15)..."
-    sleep 2
+    echo "   Warte auf Server (Versuch $i/20)..."
+    sleep 1
 done
 
 if [ "$HEALTHY" = false ]; then
     echo "❌ Health Check fehlgeschlagen! Bitte Server-Logs prüfen."
     if [ -f "$TARGET_DIR/server.log" ]; then
-        echo "Letzte Zeilen aus $TARGET_DIR/server.log:"
-        tail -n 25 "$TARGET_DIR/server.log"
+        echo "--- Letzte Zeilen aus $TARGET_DIR/server.log ---"
+        tail -n 30 "$TARGET_DIR/server.log" || true
     fi
     exit 1
 fi
@@ -110,3 +118,4 @@ fi
 echo "=================================================="
 echo "🎉 Deployment erfolgreich abgeschlossen!"
 echo "=================================================="
+
