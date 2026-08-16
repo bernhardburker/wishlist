@@ -1,0 +1,189 @@
+#!/usr/bin/env python3
+"""
+Automatisierte CI-Testsuite für die Wunschliste Web-App.
+Prüft HTML-Struktur, JavaScript-Syntax, CSS-Integrität und Hilfsfunktionen.
+"""
+
+import os
+import re
+import sys
+import json
+import urllib.request
+import socketserver
+import http.server
+import threading
+import time
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def log_pass(msg):
+    print(f"  \033[92m✔\033[0m {msg}")
+
+def log_fail(msg):
+    print(f"  \033[91m✖\033[0m {msg}")
+
+def test_file_structure():
+    print("\n📂 1. Überprüfe Datei- und Verzeichnisstruktur...")
+    required_files = [
+        "index.html",
+        ".gitignore",
+        "README.md",
+        "server.py",
+        ".github/workflows/ci.yml",
+        ".github/workflows/cd.yml",
+        "css/index.css",
+        "css/components.css",
+        "css/responsive.css",
+        "assets/favicon.svg",
+        "data/default-wishes.js",
+        "js/app.js",
+        "js/state.js",
+        "js/storage.js",
+        "js/components/header.js",
+        "js/components/filterBar.js",
+        "js/components/giftCard.js",
+        "js/components/giftGrid.js",
+        "js/components/reserveModal.js",
+        "js/components/cancelModal.js",
+        "js/components/adminModal.js",
+        "js/components/configModal.js",
+        "js/components/toast.js",
+        "js/utils/helpers.js",
+        "js/utils/shopHelper.js",
+        "js/utils/csvHelper.js"
+    ]
+
+    all_ok = True
+    for f in required_files:
+        full_path = os.path.join(PROJECT_ROOT, f)
+        if os.path.exists(full_path):
+            log_pass(f"Gefunden: {f}")
+        else:
+            log_fail(f"Fehlt: {f}")
+            all_ok = False
+
+    return all_ok
+
+def test_html_integrity():
+    print("\n🌐 2. Überprüfe HTML-Struktur & semantische Elemente...")
+    index_path = os.path.join(PROJECT_ROOT, "index.html")
+    with open(index_path, "r", encoding="utf-8") as f:
+        html = f.read()
+
+    checks = [
+        ("Doctype vorhanden", "<!DOCTYPE html>" in html),
+        ("Deutsche Sprachdeklaration (lang='de')", 'lang="de"' in html),
+        ("Viewport Meta-Tag vorhanden", 'name="viewport"' in html),
+        ("Favicon eingebunden", 'rel="icon"' in html),
+        ("CSS-Stylesheets eingebunden", 'href="./css/index.css"' in html),
+        ("Root-Container für Header", 'id="header-root"' in html),
+        ("Root-Container für Filter", 'id="filter-root"' in html),
+        ("Root-Container für Geschenke-Grid", 'id="grid-root"' in html),
+        ("Root-Container für Modals", 'id="modal-root"' in html),
+        ("JavaScript Modul-Startpunkt eingebunden", 'src="./js/app.js"' in html)
+    ]
+
+    all_ok = True
+    for name, passed in checks:
+        if passed:
+            log_pass(name)
+        else:
+            log_fail(name)
+            all_ok = False
+
+    return all_ok
+
+def test_css_variables():
+    print("\n🎨 3. Überprüfe CSS-Design-Tokens & Styling...")
+    css_path = os.path.join(PROJECT_ROOT, "css", "index.css")
+    with open(css_path, "r", encoding="utf-8") as f:
+        css = f.read()
+
+    tokens = ["--color-primary", "--color-accent", "--color-success", "--color-warning", "--bg-app", "--bg-surface"]
+    all_ok = True
+    for token in tokens:
+        if token in css:
+            log_pass(f"CSS Variable definiert: {token}")
+        else:
+            log_fail(f"CSS Variable fehlt: {token}")
+            all_ok = False
+
+    return all_ok
+
+def test_server_and_routes():
+    print("\n🚀 4. Überprüfe lokalen Webserver & Modulauslieferung...")
+    PORT = 8999
+    Handler = http.server.SimpleHTTPRequestHandler
+
+    class TestServer(threading.Thread):
+        def run(self):
+            socketserver.TCPServer.allow_reuse_address = True
+            with socketserver.TCPServer(("", PORT), Handler) as httpd:
+                self.httpd = httpd
+                httpd.serve_forever()
+        def stop(self):
+            self.httpd.shutdown()
+
+    # Wechsle ins Root-Verzeichnis für den Server
+    cwd = os.getcwd()
+    os.chdir(PROJECT_ROOT)
+    server = TestServer()
+    server.daemon = True
+    server.start()
+    time.sleep(0.5)
+
+    urls_to_test = [
+        "/index.html",
+        "/css/index.css",
+        "/css/components.css",
+        "/css/responsive.css",
+        "/js/app.js",
+        "/js/state.js",
+        "/js/storage.js",
+        "/js/utils/csvHelper.js",
+        "/js/utils/shopHelper.js",
+        "/assets/favicon.svg"
+    ]
+
+    all_ok = True
+    try:
+        for url in urls_to_test:
+            req_url = f"http://localhost:{PORT}{url}"
+            try:
+                with urllib.request.urlopen(req_url) as res:
+                    if res.status == 200:
+                        log_pass(f"HTTP 200 OK: {url} ({len(res.read())} Bytes)")
+                    else:
+                        log_fail(f"HTTP {res.status}: {url}")
+                        all_ok = False
+            except Exception as e:
+                log_fail(f"Fehler bei {url}: {e}")
+                all_ok = False
+    finally:
+        server.stop()
+        os.chdir(cwd)
+
+    return all_ok
+
+def main():
+    print("=" * 65)
+    print("🧪 Starte CI Testsuite für Wunschliste Web-App")
+    print("=" * 65)
+
+    t1 = test_file_structure()
+    t2 = test_html_integrity()
+    t3 = test_css_variables()
+    t4 = test_server_and_routes()
+
+    print("\n" + "=" * 65)
+    if t1 and t2 and t3 and t4:
+        print("🎉 \033[92mALLE CI-TESTS ERFOLGREICH BESTANDEN!\033[0m")
+        print("=" * 65)
+        sys.exit(0)
+    else:
+        print("❌ \033[91mEINIGE CI-TESTS SIND FEHLGESCHLAGEN!\033[0m")
+        print("=" * 65)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

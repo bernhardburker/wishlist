@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: CD - Deploy to GitHub Pages
 
 on:
   push:
@@ -6,34 +6,36 @@ on:
       - main
   workflow_dispatch:
 
-# Erlaube das Veröffentlichen auf GitHub Pages
+# Berechtigungen für GitHub Pages Deployment
 permissions:
   contents: read
   pages: write
   id-token: write
 
+# Verhindere parallele Deployments
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
   deploy:
+    name: 🚀 GitHub Pages Veröffentlichung
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: 📥 Repository auschecken
         uses: actions/checkout@v4
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+      - name: ⚙️ GitHub Pages einrichten
+        uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: 📦 Build-Artefakt hochladen
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
 
-      - name: Deploy to GitHub Pages
+      - name: 🌐 Auf GitHub Pages bereitstellen
         id: deployment
         uses: actions/deploy-pages@v4
