@@ -112,6 +112,16 @@ export function renderReserveModal(container, wish) {
     </div>
   `;
 
+  // Fallback for image loading error
+  const reserveThumb = modalOverlay.querySelector(".reserve-thumb");
+  if (reserveThumb) {
+    reserveThumb.addEventListener("error", () => {
+      if (reserveThumb.src !== DEFAULT_IMAGE_PLACEHOLDER) {
+        reserveThumb.src = DEFAULT_IMAGE_PLACEHOLDER;
+      }
+    });
+  }
+
   // Close logic
   const closeModal = () => {
     modalOverlay.classList.add("modal-leaving");
