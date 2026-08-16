@@ -20,10 +20,10 @@
         "shopName": "Smyths Toys",
         "status": "reserved",
         "reservedBy": "Test Gast",
-        "reservedAt": "2026-08-16T12:04:38.717773",
+        "reservedAt": "2026-08-16T12:08:27.684326",
         "note": "Freue mich",
         "reservePin": "9999",
-        "updatedAt": "2026-08-16T12:04:38.717783"
+        "updatedAt": "2026-08-16T12:08:27.684339"
       },
       {
         "id": "wish-2",

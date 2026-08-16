@@ -6,7 +6,7 @@
 set -euo pipefail
 
 TARGET_DIR="${1:-/mnt/data/work/wunschliste}"
-PORT="${PORT:-8000}"
+PORT="${PORT:-8088}"
 
 echo "=================================================="
 echo "🎁 Starte Wunschliste Upgrade auf Burkerserver..."

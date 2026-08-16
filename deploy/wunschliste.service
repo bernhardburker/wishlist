@@ -9,7 +9,7 @@ WorkingDirectory=/mnt/data/work/wunschliste
 ExecStart=/usr/bin/python3 /mnt/data/work/wunschliste/server.py
 Restart=always
 RestartSec=5
-Environment=PORT=8000
+Environment=PORT=8088
 Environment=ADMIN_PIN=1234
 Environment=PYTHONUNBUFFERED=1
 

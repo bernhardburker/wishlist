@@ -16,7 +16,7 @@ import shutil
 import tempfile
 from datetime import datetime
 
-PORT = int(os.environ.get("PORT", 8000))
+PORT = int(os.environ.get("PORT", 8088))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(DIRECTORY, "data", "events.json")
 DEFAULT_ADMIN_PIN = os.environ.get("ADMIN_PIN", "1234")
