@@ -95,6 +95,17 @@ body {
   flex-direction: column;
 }
 
+html.modal-open,
+body.modal-open {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none;
+}
+
+body.modal-open #modal-root {
+  touch-action: auto;
+}
+
 #app {
   display: flex;
   flex-direction: column;

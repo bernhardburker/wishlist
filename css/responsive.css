@@ -144,22 +144,33 @@
 
   /* Modals Mobile */
   .modal-overlay {
-    padding: 0.5rem;
+    padding: 0.5rem 0.5rem 0 0.5rem;
     align-items: flex-end;
+    overscroll-behavior: contain;
   }
 
   .modal-card {
-    max-height: 88vh;
+    max-height: 90dvh;
+    max-height: 90vh;
+    min-height: 0;
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    overscroll-behavior: contain;
   }
 
   .modal-header {
     padding: 1rem 1.25rem;
+    flex-shrink: 0;
   }
 
   .modal-body {
     padding: 1.25rem;
     gap: 1rem;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
   }
 
   .form-row-grid {

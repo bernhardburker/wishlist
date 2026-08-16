@@ -64,6 +64,11 @@ class App {
         renderConfigModal(this.modalContainer);
       }
     }
+
+    // Hintergrund-Scrollen sperren, wenn ein Modal aktiv ist
+    const hasModal = Boolean(state.activeModal);
+    document.documentElement.classList.toggle("modal-open", hasModal);
+    document.body.classList.toggle("modal-open", hasModal);
   }
 }
 
